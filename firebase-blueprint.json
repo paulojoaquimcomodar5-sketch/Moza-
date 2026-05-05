@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and balance",
+      "type": "object",
+      "properties": {
+        "phone": { "type": "string", "description": "User phone number (unique ID)" },
+        "balance": { "type": "number", "description": "Current account balance" },
+        "activeVip": { "type": "number", "description": "Current active VIP level ID" },
+        "password": { "type": "string", "description": "Hashed password (stored for demo purposes in this simple setup)" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["phone", "balance", "activeVip", "password", "createdAt", "updatedAt"]
+    },
+    "Transaction": {
+      "title": "Financial Transaction",
+      "description": "Record of deposits, withdrawals, and rewards",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Reference to the user phone" },
+        "type": { "type": "string", "enum": ["deposit", "withdraw", "reward", "investment"] },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "method": { "type": "string", "description": "Payment method used" },
+        "date": { "type": "string", "description": "Display date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "amount", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{phone}": {
+      "schema": "User",
+      "description": "User profiles indexed by phone number"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "All financial transactions"
+    }
+  }
+}
