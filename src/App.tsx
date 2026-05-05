@@ -22,15 +22,16 @@ import {
   Bell,
   TrendingUp,
   ShieldCheck,
-  TrendingUp as ChartIcon,
   Shield,
   Star,
   Users,
   User,
   Grid,
+  LayoutGrid,
   ArrowUpRight,
   Headphones,
   LineChart as LineChartIcon,
+  PieChart as PieChartIcon,
   ArrowDownRight,
   ClipboardList,
   Building2,
@@ -39,7 +40,14 @@ import {
   Sparkles,
   Send,
   MessageSquare,
-  Bot
+  Bot,
+  HelpCircle,
+  FileText,
+  DollarSign,
+  Landmark,
+  BookOpen,
+  Globe,
+  GraduationCap
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { 
@@ -148,6 +156,23 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   console.error('Firestore Error: ', JSON.stringify(errInfo));
 }
 
+// --- Benefit Icon Helper ---
+const getBenefitIcon = (benefit: string) => {
+  const b = benefit.toLowerCase();
+  if (b.includes('saque')) return Wallet;
+  if (b.includes('tarefa')) return ClipboardList;
+  if (b.includes('suporte')) return Headphones;
+  if (b.includes('gerente')) return User;
+  if (b.includes('comissão')) return Users;
+  if (b.includes('bónus')) return Gift;
+  if (b.includes('retorno')) return TrendingUp;
+  if (b.includes('certificado')) return Award;
+  if (b.includes('lucro')) return Star;
+  if (b.includes('caixa')) return Gift;
+  if (b.includes('evento')) return Sparkles;
+  return CheckCircle2;
+};
+
 interface Transaction {
   id: string;
   type: 'deposit' | 'withdraw' | 'reward' | 'investment';
@@ -156,6 +181,46 @@ interface Transaction {
   date: string;
   method?: string;
 }
+
+// --- Logo Component ---
+const Logo = ({ className = "scale-100", showText = true }: { className?: string, showText?: boolean }) => (
+  <div className={`flex flex-col items-center justify-center gap-2 ${className}`}>
+    <div className="relative w-16 h-16">
+      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-[0_0_15px_rgba(34,211,238,0.4)]">
+        <path 
+          d="M20 70V30L45 55L55 45V70" 
+          stroke="url(#logo-grad-1)" 
+          strokeWidth="12" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+        />
+        <path 
+          d="M55 70V40L80 15M80 15H60M80 15V35" 
+          stroke="url(#logo-grad-2)" 
+          strokeWidth="12" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+        />
+        <defs>
+          <linearGradient id="logo-grad-1" x1="20" y1="30" x2="55" y2="70" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#06b6d4" />
+            <stop offset="1" stopColor="#3b82f6" />
+          </linearGradient>
+          <linearGradient id="logo-grad-2" x1="55" y1="15" x2="80" y2="70" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#facc15" />
+            <stop offset="1" stopColor="#4ade80" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+    {showText && (
+      <div className="text-center">
+        <span className="text-2xl font-black tracking-[0.2em] text-white">MOZA</span>
+        <span className="text-2xl font-black tracking-[0.2em] text-gold ml-2">INV</span>
+      </div>
+    )}
+  </div>
+);
 
 // --- Auth Component (Login) ---
 interface AuthScreenProps {
@@ -193,12 +258,10 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
 
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
-        // Login success will be handled by the state listener in the main App component
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Initialize user profile in Firestore
         const userDocRef = doc(db, 'users', user.uid);
         await setDoc(userDocRef, {
           phone: sanitizedPhone,
@@ -208,7 +271,6 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
           updatedAt: serverTimestamp()
         });
 
-        // Add initial bonus transaction
         await addDoc(collection(db, 'transactions'), {
           userId: user.uid,
           type: 'reward',
@@ -246,103 +308,126 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
       exit={{ opacity: 0 }}
       className="min-h-screen bg-bg-deep flex flex-col items-center justify-center p-6 relative overflow-hidden"
     >
-      {/* Decorative Blur */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-gold/5 blur-[120px] rounded-full" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-gold/5 blur-[120px] rounded-full" />
+      {/* Decorative Premium Blurs */}
+      <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-gold/10 blur-[160px] rounded-full animate-pulse" />
+      <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] bg-blue-500/5 blur-[160px] rounded-full animate-pulse opacity-50" />
 
-      <div className="w-full max-w-sm space-y-8 z-10">
-        <div className="text-center space-y-4">
+      <div className="w-full max-w-sm space-y-12 z-10">
+        <div className="text-center space-y-6">
           <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
+            initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="inline-block p-5 rounded-[40px] bg-card-bg border border-gold/10 shadow-2xl"
+            transition={{ type: "spring", stiffness: 200, damping: 20 }}
+            className="inline-block"
           >
-            <h1 className="text-4xl font-black tracking-widest leading-none">
-              MOZA <br /><span className="text-gold uppercase text-2xl">Invest</span>
-            </h1>
+            <Logo className="scale-125" />
           </motion.div>
-          <h2 className="text-2xl font-black text-white uppercase tracking-widest">
-            {isLogin ? 'Bem-vindo de Volta' : 'Aderir ao Premium'}
-          </h2>
+          
+          <div className="space-y-1">
+            <h2 className="text-3xl font-black text-white uppercase tracking-tight">
+              {isLogin ? 'Bem-vindo' : 'Premium Access'}
+            </h2>
+            <p className="text-text-gray text-xs font-bold uppercase tracking-widest opacity-60">
+              {isLogin ? 'Inicie sessão na sua conta' : 'Crie a sua conta de investidor'}
+            </p>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <AnimatePresence>
+        <motion.form 
+          layout
+          onSubmit={handleSubmit} 
+          className="space-y-5 bg-card-bg/30 backdrop-blur-xl border border-white/5 p-8 rounded-[40px] shadow-2xl relative overflow-hidden group"
+        >
+          {/* Form inner glow */}
+          <div className="absolute inset-0 bg-gold/5 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none" />
+
+          <AnimatePresence mode="wait">
             {error && (
               <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="bg-red-500/10 border border-red-500/50 text-red-500 text-[10px] font-black p-4 rounded-2xl flex items-center gap-2 uppercase tracking-widest"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-red-500/10 border border-red-500/20 text-red-500 text-[11px] font-black p-5 rounded-2xl flex items-center gap-3 uppercase tracking-widest"
               >
-                {error}
+                <Shield className="w-5 h-5 flex-shrink-0" />
+                <span>{error}</span>
               </motion.div>
             )}
             {status && (
               <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="bg-green-500/10 border border-green-500/50 text-green-500 text-[10px] font-black p-4 rounded-2xl flex items-center gap-2 uppercase tracking-widest"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-green-500/10 border border-green-500/20 text-green-500 text-[11px] font-black p-5 rounded-2xl flex items-center gap-3 uppercase tracking-widest"
               >
-                {status}
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                <span>{status}</span>
               </motion.div>
             )}
           </AnimatePresence>
 
-          <div className="space-y-4">
-            <div className="relative group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold/30 group-focus-within:text-gold transition-colors">
-                <Phone className="w-5 h-5" />
+          <div className="space-y-4 relative z-10">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-text-gray uppercase tracking-widest ml-1">Telefone</label>
+              <div className="relative group/input">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold/20 group-focus-within/input:text-gold transition-colors">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <input 
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="258..."
+                  disabled={isLoading}
+                  className="w-full bg-black/40 border border-white/5 rounded-2xl py-4.5 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 focus:bg-black/60 transition-all font-mono"
+                />
               </div>
-              <input 
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Introduzir Telefone"
-                disabled={isLoading}
-                className="w-full bg-card-bg border border-border-dim rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 transition-all font-mono"
-              />
             </div>
 
-            <div className="relative group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold/30 group-focus-within:text-gold transition-colors">
-                <Lock className="w-5 h-5" />
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-text-gray uppercase tracking-widest ml-1">Senha</label>
+              <div className="relative group/input">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold/20 group-focus-within/input:text-gold transition-colors">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <input 
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  disabled={isLoading}
+                  className="w-full bg-black/40 border border-white/5 rounded-2xl py-4.5 pl-12 pr-12 text-white focus:outline-none focus:border-gold/50 focus:bg-black/60 transition-all"
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-text-gray hover:text-gold transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
-              <input 
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Senha de Acesso"
-                disabled={isLoading}
-                className="w-full bg-card-bg border border-border-dim rounded-2xl py-4 pl-12 pr-12 text-white focus:outline-none focus:border-gold/50 transition-all"
-              />
-              <button 
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-text-gray hover:text-gold transition-colors"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
             </div>
 
             {!isLogin && (
               <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="relative group"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-2"
               >
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold/30 group-focus-within:text-gold transition-colors">
-                  <ShieldCheck className="w-5 h-5" />
+                <label className="text-[10px] font-black text-text-gray uppercase tracking-widest ml-1">Confirmar Senha</label>
+                <div className="relative group/input">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold/20 group-focus-within/input:text-gold transition-colors">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <input 
+                    type={showPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    disabled={isLoading}
+                    className="w-full bg-black/40 border border-white/5 rounded-2xl py-4.5 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 focus:bg-black/60 transition-all"
+                  />
                 </div>
-                <input 
-                  type={showPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirmar Senha"
-                  disabled={isLoading}
-                  className="w-full bg-card-bg border border-border-dim rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 transition-all"
-                />
               </motion.div>
             )}
           </div>
@@ -350,18 +435,26 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
           <button 
             type="submit"
             disabled={isLoading}
-            className="w-full gold-gradient py-4 rounded-2xl text-black font-black uppercase tracking-widest text-sm hover:brightness-110 active:scale-98 shadow-2xl flex items-center justify-center gap-2"
+            className="w-full gold-gradient py-5 rounded-[22px] text-black font-black uppercase tracking-[0.2em] text-xs hover:brightness-110 active:scale-98 shadow-2xl shadow-gold/20 flex items-center justify-center gap-3 mt-4"
           >
-            {isLoading ? <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : (isLogin ? 'Entrar na Conta' : 'Criar Conta')}
+            {isLoading ? (
+              <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+            ) : (
+              <>
+                <span>{isLogin ? 'Aceder Agora' : 'Criar Conta Premium'}</span>
+                <ChevronRight className="w-4 h-4" />
+              </>
+            )}
           </button>
-        </form>
+        </motion.form>
 
-        <div className="text-center pt-4">
+        <div className="text-center pt-2">
           <button 
             onClick={() => setIsLogin(!isLogin)}
-            className="text-text-gray text-[10px] font-black hover:text-gold transition-colors uppercase tracking-[0.3em]"
+            className="text-text-gray text-[11px] font-black hover:text-gold transition-colors uppercase tracking-[0.25em] relative group"
           >
-            {isLogin ? 'Novo Membro? Registe-se Agora' : 'Voltar ao Login'}
+            <span>{isLogin ? 'Não tem conta? Registe-se' : 'Já é membro? Entrar agora'}</span>
+            <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-gold group-hover:w-full transition-all duration-300" />
           </button>
         </div>
       </div>
@@ -369,31 +462,121 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
   );
 };
 
-// --- Action Item (Square Boxes) ---
+// --- Home Banner Component ---
+const HomeBanner = ({ onBoxClick }: { onBoxClick: () => void }) => {
+  const banners = [
+    {
+      title: "Investimento Seguro",
+      subtitle: "Capital Protegido",
+      icon: Shield,
+      color: "from-gold/20 via-gold/5 to-transparent",
+      text: "Segurança máxima para o seu património.",
+      action: null
+    },
+    {
+      title: "Bónus de Convite",
+      subtitle: "Exclusivo VIP GOLD",
+      icon: Sparkles,
+      color: "from-blue-500/20 via-blue-500/5 to-transparent",
+      text: "Ganhe mais expandindo a sua rede.",
+      action: null
+    },
+    {
+      title: "Sorte Diária",
+      subtitle: "Caixa Sorte MOZA",
+      icon: Gift,
+      color: "from-indigo-500/20 via-purple-500/5 to-transparent",
+      text: "Abra agora e receba bónus aleatórios.",
+      action: onBoxClick
+    }
+  ];
+
+  const [current, setCurrent] = React.useState(0);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % banners.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <motion.div 
+      onClick={() => banners[current].action?.()}
+      className={`relative w-full h-44 rounded-[40px] overflow-hidden border border-white/5 shadow-2xl group transition-all ${banners[current].action ? 'cursor-pointer active:scale-95' : 'cursor-default'}`}
+    >
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={current}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          className={`absolute inset-0 bg-gradient-to-br ${banners[current].color} p-8 flex flex-col justify-center gap-2`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/5 backdrop-blur-md flex items-center justify-center border border-white/10">
+              {React.createElement(banners[current].icon, { className: "w-5 h-5 text-gold" })}
+            </div>
+            <span className="text-[10px] font-black text-gold uppercase tracking-[0.4em]">{banners[current].title}</span>
+          </div>
+          <div className="space-y-0.5">
+            <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-none">{banners[current].subtitle}</h3>
+            <p className="text-[10px] font-bold text-text-gray/60 uppercase tracking-widest leading-loose">{banners[current].text}</p>
+          </div>
+          
+          <div className="absolute bottom-6 left-8 flex gap-1.5">
+            {banners.map((_, idx) => (
+              <div 
+                key={idx} 
+                className={`h-1 rounded-full transition-all duration-500 ${current === idx ? 'w-8 bg-gold' : 'w-2 bg-white/10'}`} 
+              />
+            ))}
+          </div>
+          {banners[current].action && (
+            <div className="absolute top-8 right-8">
+              <div className="w-8 h-8 rounded-xl bg-gold/20 flex items-center justify-center border border-gold/30">
+                <ChevronRight className="w-4 h-4 text-gold" />
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
+// --- Action Item (Customized cards based on user image) ---
 const ActionItem = ({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick?: () => void }) => (
   <motion.button 
-    whileHover={{ y: -5 }}
+    whileHover={{ y: -5, scale: 1.02 }}
     whileTap={{ scale: 0.95 }}
     onClick={onClick}
-    className="bg-card-bg aspect-square rounded-[32px] flex flex-col items-center justify-center gap-3 border border-border-dim hover:border-gold/30 transition-all group shadow-lg"
+    className="bg-[#121217]/90 backdrop-blur-3xl aspect-[4/5] rounded-[24px] flex flex-col items-center justify-center gap-2.5 border border-white/5 hover:border-gold/30 transition-all group shadow-2xl overflow-hidden relative p-2"
   >
-    <div className="w-12 h-12 rounded-full bg-gold-muted flex items-center justify-center group-hover:bg-gold group-hover:text-black transition-colors duration-300">
-      <Icon className="w-6 h-6 " />
+    <div className="absolute inset-0 bg-gold/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white/5 flex items-center justify-center relative z-10 transition-all duration-500 group-hover:bg-gold/10 shadow-inner">
+      <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-gold/80 transition-transform group-hover:scale-110 group-hover:text-gold" />
     </div>
-    <span className="text-[9px] font-black text-text-gray group-hover:text-white uppercase tracking-widest leading-none text-center px-1">{label}</span>
+    <span className="text-[9px] font-black text-text-gray/80 group-hover:text-white uppercase tracking-[0.15em] leading-tight text-center px-0.5 transition-colors relative z-10 break-words w-full">
+      {label}
+    </span>
   </motion.button>
 );
 
 // --- Info Stat Card ---
-const InfoCard = ({ icon: Icon, title, value, colorClass = "text-green-500" }: { icon: LucideIcon, title: string, value: string, colorClass?: string }) => (
-  <div className="bg-card-bg border border-border-dim p-6 rounded-[32px] flex-1 flex flex-col gap-2 shadow-xl hover:border-gold/10 transition-colors">
-    <div className="flex items-center gap-2">
-      <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-      <span className="text-[10px] text-text-gray font-black uppercase tracking-widest">{title}</span>
+const InfoCard = ({ icon: Icon, title, value, colorClass = "text-green-500", subtitle }: { icon: LucideIcon, title: string, value: string, colorClass?: string, subtitle?: string }) => (
+  <div className="bg-card-bg/40 backdrop-blur-xl border border-white/5 p-5 sm:p-7 rounded-[32px] flex-1 flex flex-col gap-2 sm:gap-3 shadow-2xl relative overflow-hidden group">
+    <div className="absolute top-0 right-0 p-4 opacity-[0.05] group-hover:opacity-[0.1] transition-opacity">
+      <Icon className="w-12 h-12" />
     </div>
-    <div className={`text-2xl font-black ${colorClass} tracking-tighter flex items-center gap-2`}>
-        {colorClass.includes('green') && <TrendingUp className="w-5 h-5" />}
-        {value}
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] sm:text-[11px] text-text-gray font-black uppercase tracking-[0.15em] sm:tracking-[0.25em]">{title}</span>
+    </div>
+    <div className="space-y-1">
+      <div className={`text-lg sm:text-2xl font-black ${colorClass} tracking-tight flex items-center gap-2 font-mono truncate`}>
+          {value}
+      </div>
+      {subtitle && <p className="text-[9px] sm:text-[10px] font-bold text-text-gray/60 uppercase tracking-widest">{subtitle}</p>}
     </div>
   </div>
 );
@@ -401,67 +584,84 @@ const InfoCard = ({ icon: Icon, title, value, colorClass = "text-green-500" }: {
 // --- VIP Platform Card ---
 const VipCard = ({ level, status, onActivate }: { level: any, status: string, onActivate: (id: number) => void }) => (
   <motion.div 
-    initial={{ opacity: 0, y: 20 }}
+    initial={{ opacity: 0, y: 30 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true }}
-    className={`p-8 rounded-[40px] border flex flex-col gap-6 transition-all shadow-2xl relative overflow-hidden group ${
-      status === 'active' ? 'bg-card-active border-gold border-2 shadow-gold-glow' : 'bg-card-bg border-border-dim'
+    whileHover={{ y: -8 }}
+    transition={{ type: "spring", stiffness: 300, damping: 25 }}
+    className={`p-8 rounded-[48px] border flex flex-col gap-6 transition-all shadow-2xl relative overflow-hidden group ${
+      status === 'active' ? 'bg-card-active border-gold/40 border-2 shadow-gold/20 shadow-2xl scale-[1.02]' : 'bg-card-bg/40 backdrop-blur-xl border-white/5'
     }`}
   >
+    {/* Decorative inner glow */}
+    <div className={`absolute inset-0 opacity-[0.03] transition-opacity group-hover:opacity-[0.06] ${status === 'active' ? 'bg-gold' : 'bg-white'}`} />
+    
     <div className="flex justify-between items-start relative z-10">
       <div className="flex gap-5 items-center">
-        <div className={`w-16 h-16 rounded-[22px] flex items-center justify-center text-black font-black text-3xl shadow-lg border-4 border-black/10 ${status === 'active' ? 'bg-gold' : 'gold-gradient'}`}>
+        <div className={`w-18 h-18 rounded-[24px] flex items-center justify-center text-black font-black text-3xl shadow-2xl border-4 border-black/20 ${status === 'active' ? 'gold-gradient' : 'bg-white/10 text-white/40'}`}>
           {level.id}
         </div>
         <div>
           <div className="flex items-center gap-2">
             <h3 className={`font-black text-2xl uppercase tracking-tighter ${status === 'active' ? 'text-gold' : 'text-white'}`}>{level.name}</h3>
-            <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase shadow-sm ${status === 'active' ? 'bg-gold text-black' : 'bg-white/10 text-white/50'}`}>
+            {status === 'active' && (
+              <motion.div 
+                animate={{ scale: [1, 1.1, 1] }} 
+                transition={{ repeat: Infinity, duration: 2 }}
+                className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" 
+              />
+            )}
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-widest ${status === 'active' ? 'bg-gold/20 text-gold' : 'bg-white/5 text-white/30'}`}>
               {level.badge}
             </span>
           </div>
-          <p className="text-xs text-text-gray font-medium mt-1">Investimento: <span className="text-white font-black font-mono">MZN {level.investment.toLocaleString()}</span></p>
         </div>
       </div>
       <div className="text-right">
-        <div className="text-2xl font-black text-gold font-mono leading-none">MZN {level.dailyReturn.toLocaleString()}</div>
-        <div className="text-[9px] font-black text-text-gray uppercase tracking-widest mt-1">Retorno Diário</div>
+        <div className={`text-2xl font-black font-mono leading-none ${status === 'active' ? 'text-gold' : 'text-white'}`}>MZN {level.dailyReturn.toLocaleString()}</div>
+        <div className="text-[10px] font-black text-text-gray uppercase tracking-[0.2em] mt-1.5 opacity-60">Retorno Diário</div>
       </div>
     </div>
 
-    <div className="relative z-10 space-y-3">
-      <h4 className="text-[10px] font-black text-text-gray uppercase tracking-[0.2em]">Benefícios & Vantagens</h4>
-      <div className="grid grid-cols-1 gap-2">
-        {level.benefits?.map((benefit: string, idx: number) => (
-          <div key={idx} className="flex items-center gap-3 text-white/70">
-            <div className="w-5 h-5 rounded-full bg-gold/10 flex items-center justify-center text-gold">
-              <CheckCircle2 className="w-3 h-3" />
+    <div className="relative z-10 grid grid-cols-1 gap-3 py-4 border-y border-white/5">
+      {level.benefits?.map((benefit: string, idx: number) => {
+        const Icon = getBenefitIcon(benefit);
+        return (
+          <div key={idx} className="flex items-center gap-3">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${status === 'active' ? 'bg-gold/10 text-gold' : 'bg-white/5 text-white/20'}`}>
+              <Icon className="w-3.5 h-3.5" />
             </div>
-            <span className="text-xs font-bold">{benefit}</span>
+            <span className="text-[11px] font-bold text-white/60 uppercase tracking-wide">{benefit}</span>
           </div>
-        ))}
-      </div>
+        );
+      })}
     </div>
 
-    <div className="relative z-10 pt-4 border-t border-white/5">
+    <div className="relative z-10 pt-2 flex items-center justify-between">
+      <div>
+        <p className="text-[10px] text-text-gray font-black uppercase tracking-widest opacity-60">Investimento</p>
+        <p className="text-lg font-black text-white font-mono">MZN {level.investment.toLocaleString()}</p>
+      </div>
        {status !== 'active' ? (
          <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => onActivate(level.id)} 
-            className="w-full gold-gradient py-4 text-black text-xs font-black rounded-2xl shadow-xl uppercase tracking-[0.2em] transform transition-all group-hover:brightness-110"
+            className="px-8 py-4 gold-gradient text-black text-[10px] font-black rounded-2xl shadow-2xl uppercase tracking-[0.2em] transform transition-all"
          >
-            ATIVAR AGORA
+            ATIVAR
          </motion.button>
        ) : (
-         <div className="w-full bg-gold/10 border border-gold/20 py-4 text-gold text-xs font-black rounded-2xl text-center uppercase tracking-[0.2em] animate-pulse">
-            CONTRATO ATIVO • GERANDO LUCRO
+         <div className="px-6 py-3 bg-gold/5 border border-gold/20 text-gold text-[10px] font-black rounded-2xl text-center uppercase tracking-[0.2em]">
+            CONTRATO ATIVO
          </div>
        )}
     </div>
 
-    {/* Decorative background number */}
-    <div className="absolute right-[-10px] top-[-20px] text-white opacity-[0.03] text-9xl font-black select-none pointer-events-none group-hover:opacity-[0.05] transition-opacity">
+    {/* Background Level Indicator */}
+    <div className="absolute right-[-20px] bottom-[-40px] text-white opacity-[0.02] text-[180px] font-black select-none pointer-events-none tracking-tighter">
         {level.id}
     </div>
   </motion.div>
@@ -636,7 +836,7 @@ const RecordsOverlay = ({ transactions, onClose }: { transactions: Transaction[]
             }`}>
               {tx.type === 'deposit' ? <ArrowUpRight className="w-6 h-6 rotate-45" /> : 
                tx.type === 'withdraw' ? <ArrowUpRight className="w-6 h-6 rotate-[135deg]" /> : 
-               <ChartIcon className="w-6 h-6" />}
+               <TrendingUp className="w-6 h-6" />}
             </div>
             <div>
               <h4 className="font-black text-white uppercase text-xs tracking-widest">{tx.type === 'deposit' ? 'Depósito' : tx.type === 'withdraw' ? 'Saque' : tx.type === 'reward' ? 'Prémio' : 'Investimento'}</h4>
@@ -996,6 +1196,128 @@ const MarketOverlay = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
+const EducationOverlay = ({ onClose, onOpenAi }: { onClose: () => void, onOpenAi: () => void }) => {
+  const categories = [
+    { id: 'strategies', name: 'Estratégias', icon: TrendingUp },
+    { id: 'literacy', name: 'Literacia', icon: BookOpen },
+    { id: 'market', name: 'Mercado MZ', icon: Globe },
+  ];
+
+  const articles = [
+    {
+      category: 'literacy',
+      title: 'O que é Diversificação?',
+      excerpt: 'Saiba como proteger o seu capital MZN distribuindo investimentos.',
+      content: 'Diversificação é a prática de distribuir seus investimentos por diferentes ativos para reduzir o risco. Em Moçambique, isso pode significar investir em diferentes planos VIP e manter uma reserva de emergência...',
+      date: '05 MAI'
+    },
+    {
+      category: 'strategies',
+      title: 'Planos VIP: Qual escolher?',
+      excerpt: 'Guia completo para maximizar seu retorno diário na MOZA INV.',
+      content: 'Cada nível VIP oferece uma taxa de retorno diferente. Para iniciantes, o VIP 1 é ideal, enquanto investidores experientes em Moçambique buscam o VIP 5 para retornos de capital mais agressivos...',
+      date: '04 MAI'
+    },
+    {
+      category: 'market',
+      title: 'Tendências do Mercado em Moçambique',
+      excerpt: 'Como o cenário económico local afeta os ativos digitais.',
+      content: 'O mercado de ativos digitais em Moçambique está em crescimento. A facilidade de transações via M-Pesa e e-Mola está impulsionando a adoção de plataformas de investimento moçambicanas...',
+      date: '03 MAI'
+    }
+  ];
+
+  const [activeCategory, setActiveCategory] = useState('all');
+
+  const filteredArticles = activeCategory === 'all' 
+    ? articles 
+    : articles.filter(a => a.category === activeCategory);
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, x: '100%' }} 
+      animate={{ opacity: 1, x: 0 }} 
+      exit={{ opacity: 0, x: '100%' }}
+      className="fixed inset-0 z-[2000] bg-bg-deep flex flex-col p-6 overflow-y-auto"
+    >
+      <div className="flex justify-between items-center mb-8">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gold/10 rounded-2xl flex items-center justify-center text-gold border border-gold/20">
+            <GraduationCap className="w-6 h-6" />
+          </div>
+          <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Educação</h2>
+        </div>
+        <button onClick={onClose} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/50">✕</button>
+      </div>
+
+      <div className="flex gap-3 mb-8 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
+        <button 
+          onClick={() => setActiveCategory('all')}
+          className={`px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeCategory === 'all' ? 'bg-gold text-black' : 'bg-white/5 text-white/40'}`}
+        >
+          Tudo
+        </button>
+        {categories.map(cat => (
+          <button 
+            key={cat.id}
+            onClick={() => setActiveCategory(cat.id)}
+            className={`px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${activeCategory === cat.id ? 'bg-gold text-black' : 'bg-white/5 text-white/40'}`}
+          >
+            <cat.icon className="w-3.5 h-3.5" />
+            {cat.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid gap-6">
+        {filteredArticles.map((article, idx) => (
+          <motion.div 
+            key={idx}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.1 }}
+            className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-4 group hover:border-gold/30 transition-all"
+          >
+            <div className="flex justify-between items-start">
+              <span className="text-[10px] font-black text-gold uppercase tracking-[0.3em]">{article.date}</span>
+              <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-text-gray group-hover:text-gold transition-colors">
+                <ChevronRight className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black text-white uppercase tracking-tight leading-tight">{article.title}</h3>
+              <p className="text-xs text-text-gray/80 font-medium leading-relaxed">{article.excerpt}</p>
+            </div>
+            <div className="pt-4 border-t border-white/5">
+              <button className="text-[10px] font-black text-gold uppercase tracking-widest flex items-center gap-2 hover:gap-3 transition-all">
+                Ler Artigo Completo <ExternalLink className="w-3 h-3" />
+              </button>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="mt-12 p-8 rounded-[40px] bg-gold/5 border border-gold/10 text-center space-y-4">
+        <div className="w-16 h-16 bg-gold/10 rounded-full flex items-center justify-center text-gold mx-auto">
+          <Bot className="w-8 h-8" />
+        </div>
+        <div className="space-y-1">
+          <h4 className="text-lg font-black text-white uppercase tracking-tighter">Precisa de Ajuda Pessoal?</h4>
+          <p className="text-[10px] font-black text-text-gray uppercase tracking-widest leading-relaxed">
+            O nosso assistente de IA está pronto para responder às suas dúvidas financeiras 24/7.
+          </p>
+        </div>
+        <button 
+           onClick={onOpenAi}
+           className="w-full bg-gold text-black py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:brightness-110 transition-all"
+        >
+          Falar com IA MOZA
+        </button>
+      </div>
+    </motion.div>
+  );
+};
+
 const AboutOverlay = ({ onClose }: { onClose: () => void }) => (
   <motion.div 
     initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
@@ -1056,8 +1378,9 @@ export default function App() {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userPhone, setUserPhone] = useState('');
+  const [userName, setUserName] = useState('');
   const [activeTab, setActiveTab] = useState('home');
-  const [overlayView, setOverlayView] = useState<'none' | 'deposit' | 'withdraw' | 'records' | 'box' | 'support' | 'market' | 'about' | 'ai_helper'>('none');
+  const [overlayView, setOverlayView] = useState<'none' | 'deposit' | 'withdraw' | 'records' | 'box' | 'support' | 'market' | 'about' | 'ai_helper' | 'education'>('none');
   const [depositAmount, setDepositAmount] = useState<number | null>(null);
   const [balance, setBalance] = useState(0);
   const [activeVip, setActiveVip] = useState(0);
@@ -1087,6 +1410,7 @@ export default function App() {
         setBalance(data.balance || 0);
         setActiveVip(data.activeVip || 0);
         setUserPhone(data.phone || '');
+        setUserName(data.name || '');
         setLoading(false);
       }
     }, (error) => {
@@ -1243,6 +1567,26 @@ export default function App() {
     }
   };
 
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState('');
+
+  const updateProfileName = async (newName: string) => {
+    if (!firebaseUser) return;
+    try {
+      await updateDoc(doc(db, 'users', firebaseUser.uid), {
+        name: newName,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${firebaseUser.uid}`);
+    }
+  };
+
+  const handleSaveName = () => {
+    updateProfileName(tempName);
+    setIsEditingName(false);
+  };
+
   if (loading && !isLoggedIn) {
     return (
       <div className="min-h-screen bg-bg-deep flex items-center justify-center">
@@ -1270,21 +1614,21 @@ export default function App() {
         {overlayView === 'ai_helper' && <AiHelperOverlay onClose={() => setOverlayView('support')} />}
         {overlayView === 'market' && <MarketOverlay onClose={() => setOverlayView('none')} />}
         {overlayView === 'about' && <AboutOverlay onClose={() => setOverlayView('none')} />}
+        {overlayView === 'education' && <EducationOverlay onClose={() => setOverlayView('none')} onOpenAi={() => setOverlayView('ai_helper')} />}
         {overlayView === 'box' && <LuckyBoxOverlay onClose={() => setOverlayView('none')} onWin={(amt) => { handleCompleteTask(0, amt); }} />}
       </AnimatePresence>
 
       {/* Modern Header */}
       <header className="px-6 py-6 flex justify-between items-center bg-bg-deep/50 backdrop-blur-3xl sticky top-0 z-[100] border-b border-white/5">
         <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setActiveTab('home')}>
-          <div className="w-10 h-10 bg-gold/10 rounded-xl flex items-center justify-center border border-gold/20">
-            <ChartIcon className="w-5 h-5 text-gold" />
+          <div className="w-10 h-10">
+            <Logo showText={false} className="scale-50 h-full w-full" />
           </div>
-          <h1 className="text-xl font-black tracking-widest leading-none">MOZA</h1>
+          <h1 className="text-xl font-black tracking-widest leading-none">MOZA <span className="text-gold">INV</span></h1>
         </div>
         
         <div className="flex items-center gap-2">
           <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
             <span className="text-[10px] font-black text-gold uppercase tracking-widest font-mono">ID: {userPhone.slice(-4) || '2026'}</span>
           </div>
           <div onClick={handleLogout} className="w-10 h-10 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/50 hover:text-red-500 cursor-pointer">
@@ -1298,117 +1642,160 @@ export default function App() {
           {activeTab === 'home' && (
             <motion.div 
               key="home"
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-8"
+              exit={{ opacity: 0, y: -30 }}
+              className="space-y-6"
             >
-              {/* Refined Balance Section */}
-              <div className="relative pt-4">
-                <div className="absolute inset-0 bg-gold/5 blur-3xl rounded-full" />
-                <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] rounded-[44px] p-10 border border-white/10 relative overflow-hidden shadow-2xl group">
-                  <div className="absolute -right-6 -bottom-6 opacity-5 rotate-12">
-                    <Wallet className="w-48 h-48 text-gold" />
+              <div className="flex flex-col gap-1 px-4 pt-2">
+                 <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Olá, <span className="text-gold">{userName || 'Utilizador'}</span></h2>
+                 <p className="text-text-gray text-[9px] font-black uppercase tracking-[0.5em] opacity-50">Status: Investidor VIP MOZA</p>
+              </div>
+
+              {/* Promotional Banner */}
+              <HomeBanner onBoxClick={() => setOverlayView('box')} />
+
+              {/* Refined Premium Asset Card */}
+              <div className="relative group">
+                <div className="absolute inset-0 bg-gold/10 blur-[100px] rounded-full opacity-30 animate-pulse" />
+                <div className="bg-card-bg/40 backdrop-blur-3xl rounded-[48px] p-9 border border-white/5 relative overflow-hidden shadow-2xl">
+                  <div className="absolute top-0 right-0 p-10 opacity-[0.04] translate-x-12 translate-y-[-16px] transform -rotate-12 group-hover:scale-110 transition-transform duration-1000">
+                    <Logo showText={false} className="scale-[4]" />
                   </div>
                   
-                  <div className="relative z-10 space-y-8">
+                  <div className="relative z-10 flex flex-col gap-8">
                     <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <span className="text-text-gray text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Saldo Disponível</span>
-                        <div className="text-5xl font-black text-gold tracking-tighter leading-none font-mono">
-                          MZN {balance.toLocaleString()}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full w-fit backdrop-blur-xl">
+                          <span className="text-[9.5px] font-black text-text-gray uppercase tracking-[0.3em]">Capital Disponível</span>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-4xl font-black text-white tracking-tighter leading-none font-mono flex items-baseline gap-2">
+                             {balance.toLocaleString()}
+                             <span className="text-lg text-gold font-sans font-black">MZN</span>
+                          </div>
                         </div>
                       </div>
-                      <div className="bg-gold/10 p-3 rounded-2xl border border-gold/30">
-                        <span className="text-xs font-black text-gold uppercase">VIP {activeVip}</span>
-                      </div>
+                      <motion.div 
+                        whileHover={{ scale: 1.05 }}
+                        className="bg-gold/10 p-5 rounded-[32px] border border-gold/20 flex flex-col items-center gap-1 shadow-2xl shadow-gold/5"
+                      >
+                         <Star className="w-5 h-5 text-gold mb-1" />
+                         <span className="text-[9px] font-black text-gold uppercase tracking-widest leading-none">NÍVEL</span>
+                         <span className="text-xl font-black text-gold leading-none mt-1">VIP {activeVip}</span>
+                      </motion.div>
                     </div>
 
-                    <div className="flex gap-3">
-                      <button 
+                    <div className="grid grid-cols-2 gap-4">
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => setOverlayView('deposit')}
-                        className="flex-1 bg-gold text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:brightness-110 transition-all shadow-lg"
+                        className="gold-gradient p-4 rounded-[26px] text-black font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl flex items-center justify-center gap-3 group/btn relative overflow-hidden"
                       >
-                        RECARREGAR
-                      </button>
-                      <button 
+                        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                        <ArrowUpRight className="w-4 h-4" />
+                        <span className="relative z-10">RECARREGAR</span>
+                      </motion.button>
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => setOverlayView('withdraw')}
-                        className="flex-1 border border-white/10 text-white/80 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white/5 transition-all"
+                        className="bg-white/5 backdrop-blur-xl border border-white/5 p-4 rounded-[26px] text-white font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl flex items-center justify-center gap-3 group/btn relative overflow-hidden"
                       >
-                        SAQUE
-                      </button>
+                        <div className="absolute inset-0 bg-white/5 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                        <ArrowDownRight className="w-4 h-4" />
+                        <span className="relative z-10">RETIRAR</span>
+                      </motion.button>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Stats & Actions */}
+              {/* Bento Grid Stats */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/5 border border-white/10 p-5 rounded-[32px] flex flex-col gap-1">
-                  <span className="text-[9px] text-text-gray font-black uppercase tracking-widest">Lucro Total</span>
-                  <span className="text-xl font-black text-green-500 font-mono">MZN 0.00</span>
+                <InfoCard 
+                  icon={TrendingUp} 
+                  title="Lucro Hoje" 
+                  value={`MZN ${transactions.filter(t => t.type === 'reward').length > 0 ? transactions.filter(t => t.type === 'reward')[0].amount.toLocaleString() : '0.00'}`} 
+                  subtitle="Atualizado agora"
+                />
+                <InfoCard 
+                  icon={PieChartIcon} 
+                  title="Rendimento" 
+                  value="12.5%" 
+                  colorClass="text-blue-500" 
+                  subtitle="Média mensal"
+                />
+              </div>
+
+              {/* Navigation Grid */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center px-2">
+                  <h3 className="text-[10px] font-black text-text-gray uppercase tracking-[0.4em]">Serviços & Gestão</h3>
+                  <div className="w-16 h-[1px] bg-white/5" />
                 </div>
-                <div className="bg-white/5 border border-white/10 p-5 rounded-[32px] flex flex-col gap-1">
-                  <span className="text-[9px] text-text-gray font-black uppercase tracking-widest">Rendimento Hoje</span>
-                  <span className="text-xl font-black text-gold font-mono">MZN 0.00</span>
+                <div className="grid grid-cols-4 gap-3">
+                   <ActionItem icon={DollarSign} label="Recarga" onClick={() => setOverlayView('deposit')} />
+                   <ActionItem icon={ArrowUpRight} label="Saque" onClick={() => setOverlayView('withdraw')} />
+                   <ActionItem icon={Landmark} label="Crédito" />
+                   <ActionItem icon={Users} label="Equipe" onClick={() => setActiveTab('team')} />
+                   <ActionItem icon={HelpCircle} label="Educação" onClick={() => setOverlayView('education')} />
+                   <ActionItem icon={TrendingUp} label="Fundo" onClick={() => setOverlayView('market')} />
+                   <ActionItem icon={FileText} label="Tarefas" onClick={() => setActiveTab('tasks')} />
+                   <ActionItem icon={Building2} label="Empresa" onClick={() => setOverlayView('about')} />
                 </div>
               </div>
 
-              {/* Menu Grid */}
-              <div className="space-y-4">
-                 <h3 className="text-[10px] font-black text-text-gray uppercase tracking-[0.5em] px-2 opacity-50">Centro de Operações</h3>
-                 <div className="grid grid-cols-4 gap-4">
-                    {QUICK_ACTIONS.map(action => (
-                      <React.Fragment key={action.id}>
-                        <ActionItem 
-                          icon={action.icon} 
-                          label={action.label} 
-                          onClick={() => {
-                            if (action.id === 'recharge') setOverlayView('deposit');
-                            if (action.id === 'withdraw') setOverlayView('withdraw');
-                            if (action.id === 'records') setOverlayView('records');
-                            if (action.id === 'box') setOverlayView('box');
-                            if (action.id === 'support') setOverlayView('support');
-                            if (action.id === 'company') setOverlayView('about');
-                            if (action.id === 'team') setActiveTab('team');
-                            if (action.id === 'graph') setOverlayView('market');
-                            if (action.id === 'tasks') setActiveTab('tasks');
-                          }}
-                        />
-                      </React.Fragment>
-                    ))}
-                 </div>
+              {/* Quick News Ticker */}
+              <div className="bg-card-bg/20 backdrop-blur-xl border border-white/5 p-4 rounded-3xl flex items-center gap-4 overflow-hidden shadow-sm">
+                <div className="flex items-center gap-2 flex-shrink-0 border-r border-white/10 pr-4">
+                  <Bell className="w-3.5 h-3.5 text-gold" />
+                  <span className="text-[9px] font-black text-gold uppercase tracking-widest leading-none">News</span>
+                </div>
+                <div className="flex-1 text-[10px] font-bold text-text-gray/80 uppercase tracking-widest truncate">
+                   Lançamento do fundo MOZA GOLD 2026 com rendimento anual garantido.
+                </div>
               </div>
             </motion.div>
           )}
 
           {activeTab === 'tasks' && (
-            <motion.div key="tasks" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-               <div className="flex flex-col gap-2 px-2">
-                 <h2 className="text-4xl font-black uppercase tracking-tighter text-white">Missões Diárias</h2>
-                 <p className="text-text-gray text-xs font-bold uppercase tracking-widest">Complete para gerar rendimento imediato.</p>
+            <motion.div key="tasks" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 pt-4">
+               <div className="flex flex-col gap-2 px-4">
+                 <h2 className="text-4xl font-black uppercase tracking-tighter text-white">Missões <br /><span className="text-gold">Diárias</span></h2>
+                 <p className="text-text-gray text-[9px] font-black uppercase tracking-[0.4em] opacity-50">Geração de Capital em Tempo Real</p>
                </div>
                
-               <div className="grid gap-5">
+               <div className="grid gap-4">
                  {DAILY_TASKS.map(task => (
                    <motion.div 
                     key={task.id}
                     whileHover={{ scale: 1.02 }}
-                    className="bg-card-bg border-2 border-border-dim p-8 rounded-[40px] flex items-center justify-between shadow-2xl hover:border-gold/20 transition-all group"
+                    className="bg-card-bg/40 backdrop-blur-xl border border-white/5 p-6 rounded-[40px] flex items-center justify-between shadow-2xl group relative overflow-hidden"
                    >
-                     <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 rounded-3xl bg-gold-muted flex items-center justify-center text-gold group-hover:bg-gold group-hover:text-black transition-colors shadow-lg">
-                           <Gift className="w-8 h-8" />
+                     {/* Inner glow */}
+                     <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-gold/20 to-transparent" />
+                     
+                     <div className="flex items-center gap-5 relative z-10">
+                        <div className="w-14 h-14 rounded-[20px] bg-gold/5 flex items-center justify-center text-gold border border-gold/10 group-hover:bg-gold group-hover:text-black transition-all shadow-lg">
+                           <TrendingUp className="w-6 h-6" />
                         </div>
-                        <div>
-                           <h4 className="font-black uppercase text-base tracking-tight leading-none mb-2">{task.title}</h4>
+                        <div className="space-y-1">
+                           <h4 className="font-black uppercase text-sm tracking-tight leading-none text-white/90">{task.title}</h4>
                            <div className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-gold" />
-                                <p className="text-gold font-black text-sm font-mono">+ MZN {task.reward}</p>
+                                <p className="text-gold font-black text-xs font-mono uppercase tracking-widest">+ MZN {task.reward.toLocaleString()}</p>
                            </div>
                         </div>
                      </div>
-                     <button onClick={() => handleCompleteTask(task.id, task.reward)} className="gold-gradient text-black font-black px-8 py-4 rounded-[20px] text-xs uppercase tracking-widest hover:brightness-110 active:scale-95 shadow-xl">COLETAR</button>
+                     <motion.button 
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleCompleteTask(task.id, task.reward)} 
+                      className="gold-gradient text-black font-black px-6 py-3.5 rounded-[18px] text-[10px] uppercase tracking-widest shadow-xl relative z-10"
+                     >
+                       COLETAR
+                     </motion.button>
                    </motion.div>
                  ))}
                </div>
@@ -1432,97 +1819,212 @@ export default function App() {
           )}
 
           {activeTab === 'team' && (
-            <motion.div key="team" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
-               <div className="bg-card-bg p-12 rounded-[50px] border border-gold/10 relative overflow-hidden shadow-2xl">
-                  <div className="absolute top-[-20%] left-[-10%] w-[120%] h-[120%] bg-gold/5 blur-[100px] pointer-events-none" />
+            <motion.div 
+              key="team" 
+              initial={{ opacity: 0, y: 30 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="space-y-8 pt-4"
+            >
+               <div className="bg-gradient-to-br from-gold/20 via-[#1a1a1a] to-[#0d0d0d] p-10 rounded-[48px] border border-white/5 relative overflow-hidden shadow-2xl">
+                  <div className="absolute top-0 right-0 p-8 opacity-5">
+                    <Users className="w-32 h-32 text-gold" />
+                  </div>
                   <div className="relative z-10 flex flex-col items-center text-center gap-6">
-                     <div className="w-24 h-24 rounded-full bg-gold-muted flex items-center justify-center text-gold border-2 border-gold/20 shadow-2xl mb-2">
-                        <Users className="w-12 h-12" />
+                     <div className="w-20 h-20 rounded-3xl bg-gold/10 flex items-center justify-center text-gold border border-gold/20 shadow-2xl">
+                        <Users className="w-10 h-10" />
                      </div>
-                     <h2 className="text-4xl font-black uppercase tracking-tighter">Minha Rede</h2>
-                     <p className="text-text-gray text-xs font-bold uppercase tracking-widest max-w-[280px] leading-relaxed opacity-60">Expanda a sua influência e ganhe bónus em todos os níveis.</p>
+                     <div className="space-y-1">
+                        <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Minha Rede</h2>
+                        <p className="text-text-gray text-[10px] font-black uppercase tracking-widest max-w-[240px] leading-relaxed opacity-60">Expanda a sua influência e maximize os seus lucros.</p>
+                     </div>
                      
-                     <div className="w-full space-y-4 pt-4">
-                        <div className="bg-black/40 px-8 py-6 rounded-3xl border border-white/5 font-mono font-black text-xl text-gold text-center tracking-[0.2em] shadow-inner">
-                           MOZA-VIP-GOLD
+                     <div className="w-full space-y-4 pt-2">
+                        <div className="bg-black/40 px-6 py-5 rounded-2xl border border-white/5 font-mono font-black text-lg text-gold text-center tracking-[0.2em] shadow-inner">
+                           {userPhone.slice(-4) ? `MOZA-${userPhone.slice(-4)}` : 'MOZA-VIP'}
                         </div>
-                        <button className="w-full gold-gradient text-black py-5 rounded-[25px] font-black text-sm uppercase tracking-[0.2em] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.3)] hover:scale-105 transition-transform">
-                           PARTILHAR CÓDIGO
-                        </button>
+                        <motion.button 
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className="w-full gold-gradient text-black py-5 rounded-[22px] font-black text-xs uppercase tracking-[0.2em] shadow-xl"
+                        >
+                           CONVIDAR AGORA
+                        </motion.button>
                      </div>
                   </div>
                </div>
 
-               <div className="grid gap-4">
-                 {TEAM_LEVELS.map((level, i) => (
-                    <div key={i} className="bg-card-bg border border-border-dim rounded-[32px] p-8 flex justify-between items-center group transition-all hover:bg-white/5">
-                        <div className="flex gap-6 items-center">
-                            <div className="w-1 h-12 bg-gold rounded-full opacity-30 shadow-gold-glow" />
-                            <div>
-                                <h4 className="font-black text-xl uppercase tracking-tighter text-white">{level.level}</h4>
-                                <p className="text-[10px] text-gold font-black uppercase tracking-widest mt-1">Comissão: {level.commission}</p>
-                            </div>
-                        </div>
-                        <div className="space-y-1 text-right">
-                             <div className="text-3xl font-black text-white font-mono leading-none tracking-tighter">{level.count}</div>
-                             <p className="text-[9px] text-text-gray font-black uppercase tracking-widest opacity-60">MEMBROS</p>
-                        </div>
-                    </div>
-                 ))}
+               <div className="space-y-4">
+                 <div className="flex justify-between items-center px-4">
+                    <h3 className="text-[10px] font-black text-text-gray uppercase tracking-[0.4em]">Níveis de Comissão</h3>
+                    <div className="w-16 h-[1px] bg-white/5" />
+                 </div>
+                 <div className="grid gap-4">
+                   {TEAM_LEVELS.map((level, i) => (
+                      <motion.div 
+                        key={i} 
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.1 }}
+                        className="bg-card-bg/40 backdrop-blur-xl border border-white/5 rounded-[32px] p-6 flex justify-between items-center group transition-all hover:bg-white/5"
+                      >
+                          <div className="flex gap-5 items-center">
+                              <div className="w-10 h-10 rounded-2xl bg-gold/5 flex items-center justify-center text-gold border border-gold/10">
+                                <span className="text-xs font-black">{i + 1}</span>
+                              </div>
+                              <div>
+                                  <h4 className="font-black text-sm uppercase tracking-tight text-white/90">{level.level}</h4>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <TrendingUp className="w-3 h-3 text-gold" />
+                                    <p className="text-[9px] text-gold font-black uppercase tracking-widest">Ganhos: {level.commission}</p>
+                                  </div>
+                              </div>
+                          </div>
+                          <div className="space-y-0.5 text-right">
+                               <div className="text-2xl font-black text-white font-mono leading-none tracking-tighter">{level.count}</div>
+                               <p className="text-[8px] text-text-gray font-black uppercase tracking-widest opacity-50">MEMBROS</p>
+                          </div>
+                      </motion.div>
+                   ))}
+                 </div>
                </div>
             </motion.div>
           )}
 
           {activeTab === 'profile' && (
-            <motion.div key="profile" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
-               <div className="flex flex-col items-center gap-8 py-6">
+            <motion.div 
+              key="profile" 
+              initial={{ opacity: 0, y: 30 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="space-y-8 pt-4"
+            >
+               {/* Personalized Header */}
+               <div className="flex flex-col items-center gap-6 py-4">
                  <div className="relative">
-                    <div className="w-40 h-40 rounded-[50px] bg-gold p-1 shadow-[0_30px_60px_-15px_rgba(197,160,89,0.4)]">
-                        <div className="w-full h-full rounded-[45px] bg-bg-deep flex items-center justify-center text-gold font-black text-6xl shadow-inner group transition-transform hover:scale-105">
-                            <User className="w-16 h-16" />
+                    <motion.div 
+                      initial={{ scale: 0.8 }}
+                      animate={{ scale: 1 }}
+                      className="w-36 h-36 rounded-[48px] bg-gradient-to-br from-gold via-gold/50 to-gold p-[2px] shadow-[0_30px_60px_-15px_rgba(197,160,89,0.3)] cursor-pointer group"
+                    >
+                        <div className="w-full h-full rounded-[46px] bg-[#0d0d0d] flex items-center justify-center relative overflow-hidden">
+                            <User className="w-16 h-16 text-gold group-hover:scale-110 transition-transform duration-500" />
+                            <div className="absolute inset-0 bg-gold/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Sparkles className="w-8 h-8 text-white" />
+                            </div>
                         </div>
-                    </div>
-                    <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-gold-muted border-2 border-gold text-gold px-6 py-2 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl">
-                        {VIP_LEVELS.find(v => v.id === activeVip)?.badge || 'CONVIDADO'}
+                    </motion.div>
+                    <div className="absolute -bottom-2 -right-2 bg-green-500 text-white p-2 rounded-full border-4 border-[#0d0d0d] shadow-xl">
+                        <ShieldCheck className="w-4 h-4" />
                     </div>
                  </div>
-                 <div className="text-center space-y-1">
-                   <h2 className="text-3xl font-black tracking-widest uppercase">ID: {userPhone.slice(-4) ? `MOZA_${userPhone.slice(-4)}` : 'DESCONHECIDO'}</h2>
-                   <p className="text-gold font-black text-lg font-mono">+{userPhone}</p>
+                 
+                 <div className="text-center space-y-2">
+                   {isEditingName ? (
+                     <div className="flex flex-col items-center gap-3">
+                       <input 
+                         value={tempName} 
+                         onChange={(e) => setTempName(e.target.value)}
+                         className="bg-white/5 border border-gold/30 rounded-2xl px-6 py-3 text-white font-black uppercase tracking-widest text-center focus:outline-none w-full max-w-[200px]"
+                         placeholder="Seu Nome"
+                         autoFocus
+                       />
+                       <div className="flex gap-2">
+                        <button onClick={handleSaveName} className="bg-gold text-black px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest">
+                          Salvar
+                        </button>
+                        <button onClick={() => setIsEditingName(false)} className="bg-white/5 text-white/50 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest">
+                          Cancelar
+                        </button>
+                       </div>
+                     </div>
+                   ) : (
+                     <div className="flex flex-col items-center gap-1 group">
+                       <div className="flex items-center justify-center gap-2">
+                         <h2 className="text-2xl font-black tracking-widest text-white uppercase">
+                           {userName || (userPhone.slice(-4) ? `INVESTIDOR_${userPhone.slice(-4)}` : 'UTILIZADOR')}
+                         </h2>
+                         <button 
+                           onClick={() => { setTempName(userName); setIsEditingName(true); }}
+                           className="text-gold hover:scale-110 transition-transform opacity-60 hover:opacity-100"
+                         >
+                           <Settings className="w-4 h-4" />
+                         </button>
+                       </div>
+                       <p className="text-[10px] font-bold text-text-gray/50 uppercase tracking-[0.3em]">Clique no ícone para editar</p>
+                     </div>
+                   )}
+                   <div className="flex items-center justify-center gap-3">
+                     <span className="text-[10px] font-black text-gold border border-gold/30 px-3 py-1 rounded-full uppercase tracking-widest bg-gold/5">
+                        {VIP_LEVELS.find(v => v.id === activeVip)?.badge || 'START'}
+                     </span>
+                     <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                     <p className="text-text-gray font-black text-xs font-mono tracking-widest">+{userPhone}</p>
+                   </div>
                  </div>
                </div>
 
-               <div className="grid grid-cols-2 gap-5">
+               {/* Asset Overview Card */}
+               <div className="bg-gradient-to-br from-gold/10 via-[#1a1a1a] to-[#0d0d0d] rounded-[48px] p-8 border border-white/5 shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-8 opacity-5">
+                    <TrendingUp className="w-24 h-24 text-gold" />
+                  </div>
+                  <div className="relative z-10 space-y-6">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black text-text-gray uppercase tracking-[0.4em]">PATRIMÓNIO TOTAL</span>
+                      <div className="bg-white/5 px-3 py-1 rounded-full flex items-center gap-2">
+                        <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                        <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">Ativo</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-4xl font-black text-white font-mono tracking-tighter">
+                        MZN {balance.toLocaleString()}
+                      </div>
+                      <p className="text-[10px] text-gold font-bold uppercase tracking-[0.2em]">+ {((balance * 0.125) / 30).toFixed(2)} MZN HOJE</p>
+                    </div>
+                  </div>
+               </div>
+
+               {/* Operations Grid */}
+               <div className="grid grid-cols-2 gap-4">
                   {[
-                    { label: "Saque", icon: Wallet, action: () => setOverlayView('withdraw') },
-                    { label: "Registos", icon: Grid, action: () => setOverlayView('records') },
-                    { label: "Suporte", icon: Headphones, action: () => setOverlayView('support') },
-                    { label: "Empresa", icon: Building2, action: () => setOverlayView('about') }
+                    { label: "Levantamento", icon: Wallet, action: () => setOverlayView('withdraw'), color: "bg-blue-500/10 text-blue-500" },
+                    { label: "Registos", icon: ClipboardList, action: () => setOverlayView('records'), color: "bg-purple-500/10 text-purple-500" },
+                    { label: "Suporte", icon: Headphones, action: () => setOverlayView('support'), color: "bg-cyan-500/10 text-cyan-500" },
+                    { label: "Empresa", icon: Building2, action: () => setOverlayView('about'), color: "bg-gold/10 text-gold" }
                   ].map((item, i) => (
-                    <motion.div 
+                    <motion.button 
                       key={i}
-                      whileHover={{ y: -5 }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={item.action}
-                      className="bg-card-bg border border-border-dim p-8 rounded-[40px] flex flex-col items-center gap-4 group cursor-pointer shadow-xl"
+                      className="bg-card-bg/40 backdrop-blur-xl border border-white/5 p-6 rounded-[32px] flex flex-col items-center gap-4 group shadow-xl transition-all hover:bg-white/5"
                     >
-                      <item.icon className="w-10 h-10 text-gold group-hover:scale-110 transition-transform" />
-                      <span className="text-[10px] font-black uppercase tracking-[0.3em] group-hover:text-gold transition-colors">{item.label}</span>
-                    </motion.div>
+                      <div className={`w-12 h-12 rounded-2xl ${item.color.split(' ')[0]} flex items-center justify-center transition-transform group-hover:scale-110`}>
+                        <item.icon className="w-6 h-6" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70 group-hover:text-gold transition-colors text-center">{item.label}</span>
+                    </motion.button>
                   ))}
                </div>
 
-               <div className="bg-card-bg rounded-[40px] overflow-hidden divide-y divide-white/5 border border-white/5 shadow-2xl">
-                 {[
-                   { l: "Saldo Atual", v: `MZN ${balance.toLocaleString()}`, highlight: true },
-                   { l: "Lucro Estimado", v: "MZN 0.00" },
-                   { l: "Nível VIP", v: `VIP ${activeVip} ${VIP_LEVELS.find(v => v.id === activeVip)?.badge || 'START'}` },
-                   { l: "Segurança de Conta", v: "SSL ATIVO-256" }
-                 ].map((s, i) => (
-                   <div key={i} className="px-10 py-6 flex justify-between items-center group hover:bg-white/5 transition-colors">
-                      <span className="text-[10px] text-text-gray font-black uppercase tracking-widest">{s.l}</span>
-                      <span className={`text-base font-black font-mono ${s.highlight ? 'text-gold' : 'text-white'}`}>{s.v}</span>
-                   </div>
-                 ))}
+               {/* Account Stats List */}
+               <div className="bg-card-bg/20 backdrop-blur-3xl rounded-[40px] border border-white/5 overflow-hidden divide-y divide-white/5 shadow-2xl">
+                  {[
+                    { l: "Nível VIP Atual", v: `VIP ${activeVip}`, icon: Star },
+                    { l: "Membros Diretos", v: TEAM_LEVELS[0].count.toString(), icon: Users },
+                    { l: "Data de Adesão", v: "Maio 2026", icon: CheckCircle2 },
+                    { l: "Status Conta", v: "Verificada", icon: ShieldCheck, color: "text-green-500" }
+                  ].map((s, i) => (
+                    <div key={i} className="px-8 py-5 flex justify-between items-center group hover:bg-white/5 transition-colors">
+                       <div className="flex items-center gap-4">
+                          <s.icon className="w-4 h-4 text-gold opacity-50" />
+                          <span className="text-[10px] text-text-gray font-black uppercase tracking-widest">{s.l}</span>
+                       </div>
+                       <span className={`text-xs font-black uppercase tracking-widest ${s.color || 'text-white'}`}>{s.v}</span>
+                    </div>
+                  ))}
                </div>
 
                <motion.button 
@@ -1531,33 +2033,45 @@ export default function App() {
                 className="w-full bg-red-500/10 border-2 border-red-500/20 text-red-500 py-6 rounded-[32px] font-black text-xs uppercase tracking-[0.4em] flex items-center justify-center gap-4 hover:bg-red-500 hover:text-white transition-all shadow-[0_20px_40px_-10px_rgba(239,68,68,0.2)]"
                >
                  <LogOut className="w-6 h-6" />
-                 Sair da Conta
+                 Encerrar Sessão
                </motion.button>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      {/* Global Bottom Navigation */}
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-lg bg-[#0d0d0d]/90 backdrop-blur-3xl border border-white/5 px-6 py-5 flex justify-around items-center z-[1000] rounded-[32px] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)]">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col items-center gap-2 relative transition-all duration-300 ${isActive ? 'text-gold scale-110' : 'text-text-gray hover:text-white/80'}`}
-            >
-              <Icon className={`w-6 h-6 ${isActive ? 'stroke-[2.5px]' : 'stroke-[1.5px]'}`} />
-              <span className={`text-[8px] font-black tracking-[0.2em] uppercase transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-40'}`}>{item.label}</span>
-              {isActive && (
-                <motion.div layoutId="navDot" className="absolute -bottom-2 w-1 h-1 rounded-full bg-gold shadow-gold-glow" />
-              )}
-            </button>
-          );
-        })}
-      </nav>
+       {/* Premium Bottom Navigation */}
+       <nav className="fixed bottom-0 left-0 right-0 z-[1000] pb-8 pt-4 px-6 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none">
+         <div className="max-w-md mx-auto bg-black/40 backdrop-blur-3xl border border-white/10 p-2.5 rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex justify-between items-center relative overflow-hidden group pointer-events-auto">
+           {/* Nav inner glow */}
+           <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-gold/30 to-transparent opacity-50" />
+           
+           {NAV_ITEMS.map((item) => {
+             const Icon = item.icon;
+             const isActive = activeTab === item.id;
+             
+             return (
+               <button
+                 key={item.id}
+                 onClick={() => setActiveTab(item.id)}
+                 className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-[28px] transition-all relative group/nav min-w-[64px] ${isActive ? 'text-gold' : 'text-text-gray hover:text-white'}`}
+               >
+                 {isActive && (
+                   <motion.div 
+                     layoutId="nav-active-bg"
+                     className="absolute inset-0 bg-gold/10 rounded-[24px] border border-gold/20"
+                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                   />
+                 )}
+                 <Icon className={`w-6 h-6 relative z-10 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(197,160,89,0.4)] stroke-[2.5px]' : 'group-hover/nav:scale-110 stroke-[2.0px]'}`} />
+                 <span className={`text-[8px] sm:text-[8.5px] font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] relative z-10 transition-all ${isActive ? 'opacity-100' : 'opacity-40'}`}>
+                    {item.label}
+                 </span>
+               </button>
+             );
+           })}
+         </div>
+       </nav>
     </div>
   );
 }
