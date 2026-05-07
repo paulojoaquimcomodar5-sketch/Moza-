@@ -5,14 +5,16 @@
       "description": "User account information and balance",
       "type": "object",
       "properties": {
-        "phone": { "type": "string", "description": "User phone number (unique ID)" },
+        "phone": { "type": "string", "description": "User phone number" },
         "balance": { "type": "number", "description": "Current account balance" },
         "activeVip": { "type": "number", "description": "Current active VIP level ID" },
-        "password": { "type": "string", "description": "Hashed password (stored for demo purposes in this simple setup)" },
+        "loanBalance": { "type": "number", "description": "Current pending loan amount" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "Access level" },
+        "inviteCode": { "type": "string", "description": "Unique invitation code for the user" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["phone", "balance", "activeVip", "password", "createdAt", "updatedAt"]
+      "required": ["phone", "balance", "activeVip", "createdAt", "updatedAt"]
     },
     "Transaction": {
       "title": "Financial Transaction",
