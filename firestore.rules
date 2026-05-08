@@ -29,26 +29,33 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == '858778905@moza.com' ||
-        request.auth.token.email == '258858778905@moza.com' ||
-        request.auth.uid == 'm8ObXjhxx9e3oUgZwyQB1OIcc472' ||
-        request.auth.token.email == 'paulojoaquimcomodar5@gmail.com' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin')
+        (request.auth.token.email_verified == true && (
+          request.auth.token.email == '858778905@moza.com' ||
+          request.auth.token.email == '258858778905@moza.com' ||
+          request.auth.token.email == 'paulojoaquimcomodar5@gmail.com'
+        )) ||
+        request.auth.uid == 'm8ObXjhxx9e3oUgZwyQB1OIcc472'
+      );
+    }
+
+    function isSystemAdmin() {
+      return isAdmin() || (isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin'
       );
     }
 
     // --- System Settings ---
     match /settings/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read: if true;
+      allow write: if isSystemAdmin();
     }
 
     // --- Users ---
     // In this implementation, we use Firebase Auth UID as the key.
     // The phone number is stored inside the document.
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
+      allow get: if isOwner(userId) || isSystemAdmin();
       allow list: if isAdmin();
       allow create: if isSignedIn() && request.auth.uid == userId 
         && incoming().balance == 25 // Initial bonus
@@ -61,7 +68,7 @@ service cloud.firestore {
         && incoming().phone == existing().phone // Phone is immutable
         && incoming().createdAt == existing().createdAt // CreatedAt is immutable
         && incoming().updatedAt == request.time)
-        || isAdmin();
+        || isSystemAdmin();
     }
 
     // --- Transactions ---
@@ -70,14 +77,47 @@ service cloud.firestore {
       allow get: if (isSignedIn() && (resource.data.userId == request.auth.uid)) || isAdmin();
       
       allow create: if (isSignedIn() 
+        && (request.auth.token.email_verified == true || request.auth.uid == 'm8ObXjhxx9e3oUgZwyQB1OIcc472')
         && incoming().userId == request.auth.uid
         && incoming().amount is number
         && incoming().type in ['deposit', 'withdraw', 'reward', 'investment']
         && incoming().status in ['pending', 'completed', 'failed']
+        && (incoming().get('proofUrl', '') is string)
         && incoming().createdAt == request.time)
-        || isAdmin();
+        || isSystemAdmin();
       
-      allow update: if isAdmin(); 
+      allow update: if isSystemAdmin(); 
+    }
+
+    // --- AI Messages ---
+    match /ai_messages/{messageId} {
+      allow list: if (isSignedIn() && (resource.data.userId == request.auth.uid)) || isAdmin();
+      allow get: if (isSignedIn() && (resource.data.userId == request.auth.uid)) || isAdmin();
+      
+      allow create: if (isSignedIn() 
+        && incoming().userId == request.auth.uid
+        && incoming().role in ['user', 'bot']
+        && incoming().text is string && incoming().text.size() > 0 && incoming().text.size() <= 10000
+        && incoming().createdAt == request.time);
+      
+      allow update, delete: if false;
+    }
+
+    // --- Support Messages ---
+    match /support_messages/{messageId} {
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow create: if (isSignedIn() 
+        && incoming().userId is string
+        && (incoming().userId == request.auth.uid || isAdmin())
+        && incoming().senderId == request.auth.uid
+        && incoming().role in ['user', 'agent']
+        && (incoming().role == 'agent' ? isAdmin() : true)
+        && incoming().text is string && incoming().text.size() > 0 && incoming().text.size() <= 10000
+        && incoming().createdAt == request.time);
+      
+      allow update, delete: if false;
     }
   }
 }

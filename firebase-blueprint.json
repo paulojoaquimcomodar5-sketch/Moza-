@@ -26,10 +26,36 @@
         "amount": { "type": "number" },
         "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
         "method": { "type": "string", "description": "Payment method used" },
+        "proofUrl": { "type": "string", "description": "Base64 or URL of the payment proof screenshot" },
         "date": { "type": "string", "description": "Display date" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "type", "amount", "status", "createdAt"]
+    },
+    "AiMessage": {
+      "title": "AI Interaction",
+      "description": "Message history for the AI helper",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Reference to the user UID" },
+        "role": { "type": "string", "enum": ["user", "bot"] },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "text", "createdAt"]
+    },
+    "SupportMessage": {
+      "title": "Support Chat Message",
+      "description": "Real-time chat message between user and support agents",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Room ID (User UID)" },
+        "senderId": { "type": "string", "description": "UID of the sender" },
+        "role": { "type": "string", "enum": ["user", "agent"] },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "senderId", "role", "text", "createdAt"]
     }
   },
   "firestore": {
@@ -40,6 +66,14 @@
     "/transactions/{transactionId}": {
       "schema": "Transaction",
       "description": "All financial transactions"
+    },
+    "/ai_messages/{messageId}": {
+      "schema": "AiMessage",
+      "description": "AI helper message history"
+    },
+    "/support_messages/{messageId}": {
+      "schema": "SupportMessage",
+      "description": "Real-time support chat messages"
     }
   }
 }

@@ -62,7 +62,7 @@ import {
 } from 'lucide-react';
 
 // --- Overlay Management Context ---
-type OverlayType = 'none' | 'deposit' | 'withdraw' | 'records' | 'box' | 'support' | 'market' | 'about' | 'ai_helper' | 'education' | 'loan' | 'admin' | 'deposit_manager' | 'edit_profile';
+type OverlayType = 'none' | 'deposit' | 'withdraw' | 'records' | 'box' | 'support' | 'market' | 'about' | 'ai_helper' | 'live_chat' | 'education' | 'loan' | 'admin' | 'deposit_manager' | 'edit_profile';
 
 interface OverlayContextType {
   view: OverlayType;
@@ -213,43 +213,70 @@ interface Transaction {
   status: 'pending' | 'completed' | 'failed';
   date: string;
   method?: string;
+  proofUrl?: string;
 }
 
 // --- Logo Component ---
 const Logo = ({ className = "scale-100", showText = true }: { className?: string, showText?: boolean }) => (
-  <div className={`flex flex-col items-center justify-center gap-2 ${className}`}>
-    <div className="relative w-16 h-16">
-      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-[0_0_15px_rgba(34,211,238,0.4)]">
-        <path 
-          d="M20 70V30L45 55L55 45V70" 
-          stroke="url(#logo-grad-1)" 
-          strokeWidth="12" 
-          strokeLinecap="round" 
-          strokeLinejoin="round"
+  <div className={`flex flex-col items-center justify-center gap-3 ${className}`}>
+    <div className="relative">
+      {/* Decorative Rotating Ring */}
+      <motion.div 
+        animate={{ rotate: 360 }}
+        transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+        className="absolute -inset-3 border border-gold/10 rounded-full hidden sm:block"
+      />
+      
+      <div className="relative w-16 h-16 bg-slate-900 rounded-[22px] flex items-center justify-center shadow-2xl border border-white/10 overflow-hidden group">
+        {/* Techy background pattern */}
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--color-gold)_1px,_transparent_1px)] bg-[length:8px_8px]" />
+        
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 relative z-10 transition-transform duration-500 group-hover:scale-110">
+          <motion.path 
+            initial={{ pathLength: 0, opacity: 0 }}
+            animate={{ pathLength: 1, opacity: 1 }}
+            transition={{ duration: 1.5, ease: "easeOut" }}
+            d="M20 75V25L50 55L80 25V75" 
+            stroke="url(#logo-grad-premium)" 
+            strokeWidth="12" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          />
+          <motion.path 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1, duration: 0.5 }}
+            d="M50 55L80 25M80 25H65M80 25V40" 
+            stroke="#fff" 
+            strokeWidth="6" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          />
+          <defs>
+            <linearGradient id="logo-grad-premium" x1="20" y1="25" x2="80" y2="75" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#10b981" />
+              <stop offset="0.5" stopColor="#34d399" />
+              <stop offset="1" stopColor="#059669" />
+            </linearGradient>
+          </defs>
+        </svg>
+
+        {/* Premium Shine Overlay */}
+        <motion.div 
+          animate={{ x: ['150%', '-150%'] }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", repeatDelay: 3 }}
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12"
         />
-        <path 
-          d="M55 70V40L80 15M80 15H60M80 15V35" 
-          stroke="url(#logo-grad-2)" 
-          strokeWidth="12" 
-          strokeLinecap="round" 
-          strokeLinejoin="round" 
-        />
-        <defs>
-          <linearGradient id="logo-grad-1" x1="20" y1="30" x2="55" y2="70" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#06b6d4" />
-            <stop offset="1" stopColor="#3b82f6" />
-          </linearGradient>
-          <linearGradient id="logo-grad-2" x1="55" y1="15" x2="80" y2="70" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#facc15" />
-            <stop offset="1" stopColor="#4ade80" />
-          </linearGradient>
-        </defs>
-      </svg>
+      </div>
     </div>
     {showText && (
-      <div className="text-center">
-        <span className="text-2xl font-black tracking-[0.2em] text-white">MOZA</span>
-        <span className="text-2xl font-black tracking-[0.2em] text-gold ml-2">INV</span>
+      <div className="flex flex-col items-center">
+        <div className="flex items-center">
+          <span className="text-3xl font-black tracking-tighter text-white">MOZA</span>
+          <span className="text-3xl font-black tracking-tighter text-gold ml-1">INV</span>
+        </div>
+        <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-gold/40 to-transparent mt-2" />
+        <span className="text-[9px] font-bold tracking-[0.4em] text-white/40 uppercase mt-2">Plataforma Digital</span>
       </div>
     )}
   </div>
@@ -398,7 +425,7 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 relative overflow-hidden"
+      className="min-h-screen bg-[#03060b] flex flex-col items-center justify-center p-6 relative overflow-hidden"
     >
       {/* Decorative Premium Blurs */}
       <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-gold/10 blur-[160px] rounded-full animate-pulse" />
@@ -416,10 +443,10 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
           </motion.div>
           
           <div className="space-y-1">
-            <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">
+            <h2 className="text-3xl font-black text-white uppercase tracking-tight">
               {isLogin ? 'Bem-vindo' : 'Premium Access'}
             </h2>
-            <p className="text-text-gray text-xs font-bold uppercase tracking-widest opacity-60">
+            <p className="text-white/40 text-xs font-bold uppercase tracking-widest opacity-60">
               {isLogin ? 'Inicie sessão na sua conta' : 'Crie a sua conta de investidor'}
             </p>
           </div>
@@ -428,7 +455,7 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
         <motion.form 
           layout
           onSubmit={handleSubmit} 
-          className="space-y-5 bg-card-bg border border-black/5 p-8 rounded-[40px] shadow-xl relative overflow-hidden group"
+          className="space-y-5 bg-card-bg/40 backdrop-blur-2xl border border-white/5 p-8 rounded-[40px] shadow-2xl relative overflow-hidden group"
         >
           {/* Form inner glow */}
           <div className="absolute inset-0 bg-gold/5 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none" />
@@ -460,7 +487,7 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
 
           <div className="space-y-4 relative z-10">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-text-gray uppercase tracking-widest ml-1">Telefone</label>
+              <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Telefone</label>
               <div className="relative group/input">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold group-focus-within/input:text-gold transition-colors opacity-40">
                   <Phone className="w-5 h-5" />
@@ -471,13 +498,13 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="258..."
                   disabled={isLoading}
-                  className="w-full bg-black/5 border border-black/5 rounded-2xl py-4.5 pl-12 pr-4 text-slate-900 focus:outline-none focus:border-gold/50 focus:bg-white transition-all font-mono"
+                  className="w-full bg-card-bg/40 border border-white/10 rounded-2xl py-4.5 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 focus:bg-card-bg/60 transition-all font-mono"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-text-gray uppercase tracking-widest ml-1">Senha</label>
+              <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Senha</label>
               <div className="relative group/input">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold group-focus-within/input:text-gold transition-colors opacity-40">
                   <Lock className="w-5 h-5" />
@@ -488,12 +515,12 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   disabled={isLoading}
-                  className="w-full bg-black/5 border border-black/5 rounded-2xl py-4.5 pl-12 pr-12 text-slate-900 focus:outline-none focus:border-gold/50 focus:bg-white transition-all"
+                  className="w-full bg-card-bg/40 border border-white/10 rounded-2xl py-4.5 pl-12 pr-12 text-white focus:outline-none focus:border-gold/50 focus:bg-card-bg/60 transition-all"
                 />
                 <button 
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-text-gray hover:text-gold transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-gold transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -507,7 +534,7 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
                 className="space-y-4"
               >
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-text-gray uppercase tracking-widest ml-1">Confirmar Senha</label>
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Confirmar Senha</label>
                   <div className="relative group/input">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold group-focus-within/input:text-gold transition-colors opacity-40">
                       <ShieldCheck className="w-5 h-5" />
@@ -518,7 +545,7 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="••••••••"
                       disabled={isLoading}
-                      className="w-full bg-black/5 border border-black/5 rounded-2xl py-4.5 pl-12 pr-4 text-slate-900 focus:outline-none focus:border-gold/50 focus:bg-white transition-all"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4.5 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 focus:bg-white/10 transition-all"
                     />
                   </div>
                 </div>
@@ -535,7 +562,7 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
                       onChange={(e) => setInviteCodeInput(e.target.value.toUpperCase())}
                       placeholder="MOZA2026"
                       disabled={isLoading}
-                      className="w-full bg-gold/5 border border-gold/10 rounded-2xl py-4.5 pl-12 pr-4 text-slate-900 focus:outline-none focus:border-gold/50 focus:bg-gold/10 transition-all font-mono placeholder:text-slate-400"
+                      className="w-full bg-gold/5 border border-gold/10 rounded-2xl py-4.5 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 focus:bg-gold/10 transition-all font-mono placeholder:text-white/20"
                     />
                   </div>
                 </div>
@@ -562,14 +589,14 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
         <div className="text-center pt-2 space-y-4">
           <button 
             onClick={() => setIsLogin(!isLogin)}
-            className="text-text-gray text-[11px] font-black hover:text-gold transition-colors uppercase tracking-[0.25em] relative group"
+            className="text-white/40 text-[11px] font-black hover:text-gold transition-colors uppercase tracking-[0.25em] relative group"
           >
             <span>{isLogin ? 'Não tem conta? Registe-se' : 'Já é membro? Entrar agora'}</span>
             <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-gold group-hover:w-full transition-all duration-300" />
           </button>
 
-          <div className="pt-4 border-t border-black/5">
-            <p className="text-[9px] text-text-gray/40 font-black uppercase tracking-[0.3em]">
+          <div className="pt-4 border-t border-white/5">
+            <p className="text-[9px] text-white/20 font-black uppercase tracking-[0.3em]">
               Código Oficial Original: <span className="text-gold/60">MOZA2026</span>
             </p>
           </div>
@@ -631,21 +658,21 @@ const HomeBanner = ({ onBoxClick, title, highlight }: { onBoxClick: () => void, 
           className={`absolute inset-0 bg-gradient-to-br ${banners[current].color} p-8 flex flex-col justify-center gap-2`}
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/5 backdrop-blur-md flex items-center justify-center border border-white/10">
+            <div className="w-10 h-10 rounded-xl bg-card-bg/40 backdrop-blur-md flex items-center justify-center border border-white/10">
               {React.createElement(banners[current].icon, { className: "w-5 h-5 text-gold" })}
             </div>
             <span className="text-[10px] font-black text-gold uppercase tracking-[0.4em]">{banners[current].title}</span>
           </div>
           <div className="space-y-0.5">
             <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-none">{banners[current].subtitle}</h3>
-            <p className="text-[10px] font-bold text-text-gray/60 uppercase tracking-widest leading-loose">{banners[current].text}</p>
+            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest leading-loose">{banners[current].text}</p>
           </div>
           
           <div className="absolute bottom-6 left-8 flex gap-1.5">
             {banners.map((_, idx) => (
               <div 
                 key={idx} 
-                className={`h-1 rounded-full transition-all duration-500 ${current === idx ? 'w-8 bg-gold' : 'w-2 bg-white/10'}`} 
+                className={`h-1 rounded-full transition-all duration-500 ${current === idx ? 'w-8 bg-gold' : 'w-2 bg-card-bg/60'}`} 
               />
             ))}
           </div>
@@ -671,13 +698,13 @@ const ActionItem = ({ icon: Icon, label, onClick }: { icon: LucideIcon; label: s
       whileHover={{ y: -5, scale: 1.02 }}
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
-      className="bg-slate-100/90 backdrop-blur-3xl aspect-[4/5] rounded-[24px] flex flex-col items-center justify-center gap-2.5 border border-black/5 hover:border-gold/30 transition-all group shadow-md overflow-hidden relative p-2"
+      className="bg-card-bg/40 backdrop-blur-3xl aspect-[4/5] rounded-[24px] flex flex-col items-center justify-center gap-2.5 border border-white/5 hover:border-gold/30 transition-all group shadow-2xl overflow-hidden relative p-2"
     >
       <div className="absolute inset-0 bg-gold/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/5 flex items-center justify-center relative z-10 transition-all duration-500 group-hover:bg-gold/10 shadow-inner">
+      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-card-bg/40 flex items-center justify-center relative z-10 transition-all duration-500 group-hover:bg-gold/10 shadow-inner">
         <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-gold/80 transition-transform group-hover:scale-110 group-hover:text-gold" />
       </div>
-      <span className="text-[9px] font-black text-text-gray/80 group-hover:text-slate-900 uppercase tracking-[0.15em] leading-tight text-center px-0.5 transition-colors relative z-10 break-words w-full">
+      <span className="text-[9px] font-black text-white/60 group-hover:text-white uppercase tracking-[0.15em] leading-tight text-center px-0.5 transition-colors relative z-10 break-words w-full">
         {label}
       </span>
     </motion.button>
@@ -686,18 +713,18 @@ const ActionItem = ({ icon: Icon, label, onClick }: { icon: LucideIcon; label: s
 
 // --- Info Stat Card ---
 const InfoCard = ({ icon: Icon, title, value, colorClass = "text-green-500", subtitle }: { icon: LucideIcon, title: string, value: string, colorClass?: string, subtitle?: string }) => (
-  <div className="bg-card-bg border border-black/5 p-5 sm:p-7 rounded-[32px] flex-1 flex flex-col gap-2 sm:gap-3 shadow-md relative overflow-hidden group">
+  <div className="bg-card-bg/40 backdrop-blur-xl border border-white/5 p-5 sm:p-7 rounded-[32px] flex-1 flex flex-col gap-2 sm:gap-3 shadow-2xl relative overflow-hidden group">
     <div className="absolute top-0 right-0 p-4 opacity-[0.05] group-hover:opacity-[0.1] transition-opacity">
       <Icon className="w-12 h-12" />
     </div>
     <div className="flex items-center gap-2">
-      <span className="text-[10px] sm:text-[11px] text-text-gray font-black uppercase tracking-[0.15em] sm:tracking-[0.25em]">{title}</span>
+      <span className="text-[10px] sm:text-[11px] text-white/40 font-black uppercase tracking-[0.15em] sm:tracking-[0.25em]">{title}</span>
     </div>
     <div className="space-y-1">
       <div className={`text-lg sm:text-2xl font-black ${colorClass} tracking-tight flex items-center gap-2 font-mono truncate`}>
           {value}
       </div>
-      {subtitle && <p className="text-[9px] sm:text-[10px] font-bold text-text-gray/60 uppercase tracking-widest">{subtitle}</p>}
+      {subtitle && <p className="text-[9px] sm:text-[10px] font-bold text-white/40 uppercase tracking-widest">{subtitle}</p>}
     </div>
   </div>
 );
@@ -710,21 +737,21 @@ const VipCard = ({ level, status, onActivate }: { level: any, status: string, on
     viewport={{ once: true }}
     whileHover={{ y: -8 }}
     transition={{ type: "spring", stiffness: 300, damping: 25 }}
-    className={`p-8 rounded-[48px] border flex flex-col gap-6 transition-all shadow-xl relative overflow-hidden group ${
-      status === 'active' ? 'bg-card-active border-gold/40 border-2 shadow-gold/10' : 'bg-card-bg border-black/5'
+    className={`p-8 rounded-[48px] border flex flex-col gap-6 transition-all shadow-2xl relative overflow-hidden group ${
+      status === 'active' ? 'bg-card-active border-gold/40 border-2 shadow-gold-glow' : 'bg-card-bg/40 border-white/5'
     }`}
   >
     {/* Decorative inner glow */}
-    <div className={`absolute inset-0 opacity-[0.03] transition-opacity group-hover:opacity-[0.06] ${status === 'active' ? 'bg-gold' : 'bg-slate-400'}`} />
+    <div className={`absolute inset-0 opacity-[0.03] transition-opacity group-hover:opacity-[0.06] ${status === 'active' ? 'bg-gold' : 'bg-card-bg/60'}`} />
     
     <div className="flex justify-between items-start relative z-10">
       <div className="flex gap-5 items-center">
-        <div className={`w-18 h-18 rounded-[24px] flex items-center justify-center text-white font-black text-3xl shadow-lg border-4 border-black/5 ${status === 'active' ? 'gold-gradient' : 'bg-slate-100 text-slate-400'}`}>
+        <div className={`w-18 h-18 rounded-[24px] flex items-center justify-center text-white font-black text-3xl shadow-lg border-4 border-white/5 ${status === 'active' ? 'gold-gradient' : 'bg-card-bg/40 text-white/30'}`}>
           {level.id}
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <h3 className={`font-black text-2xl uppercase tracking-tighter ${status === 'active' ? 'text-gold' : 'text-slate-900'}`}>{level.name}</h3>
+            <h3 className={`font-black text-2xl uppercase tracking-tighter ${status === 'active' ? 'text-gold' : 'text-white'}`}>{level.name}</h3>
             {status === 'active' && (
               <motion.div 
                 animate={{ scale: [1, 1.1, 1] }} 
@@ -734,27 +761,27 @@ const VipCard = ({ level, status, onActivate }: { level: any, status: string, on
             )}
           </div>
           <div className="flex items-center gap-2 mt-1">
-            <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-widest ${status === 'active' ? 'bg-gold/20 text-gold' : 'bg-black/5 text-slate-400'}`}>
+            <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-widest ${status === 'active' ? 'bg-gold/20 text-gold' : 'bg-card-bg/40 text-white/40'}`}>
               {level.badge}
             </span>
           </div>
         </div>
       </div>
       <div className="text-right">
-        <div className={`text-2xl font-black font-mono leading-none ${status === 'active' ? 'text-gold' : 'text-slate-900'}`}>MZN {level.dailyReturn.toLocaleString()}</div>
-        <div className="text-[10px] font-black text-text-gray uppercase tracking-[0.2em] mt-1.5 opacity-60">Retorno Diário</div>
+        <div className={`text-2xl font-black font-mono leading-none ${status === 'active' ? 'text-gold' : 'text-white'}`}>MZN {level.dailyReturn.toLocaleString()}</div>
+        <div className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mt-1.5 opacity-60">Retorno Diário</div>
       </div>
     </div>
 
-    <div className="relative z-10 grid grid-cols-1 gap-3 py-4 border-y border-black/5">
+    <div className="relative z-10 grid grid-cols-1 gap-3 py-4 border-y border-white/5">
       {level.benefits?.map((benefit: string, idx: number) => {
         const Icon = getBenefitIcon(benefit);
         return (
           <div key={idx} className="flex items-center gap-3">
-            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${status === 'active' ? 'bg-gold/10 text-gold' : 'bg-black/5 text-slate-400'}`}>
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${status === 'active' ? 'bg-gold/10 text-gold' : 'bg-card-bg/40 text-white/40'}`}>
               <Icon className="w-3.5 h-3.5" />
             </div>
-            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">{benefit}</span>
+            <span className="text-[11px] font-bold text-white/60 uppercase tracking-wide">{benefit}</span>
           </div>
         );
       })}
@@ -762,8 +789,8 @@ const VipCard = ({ level, status, onActivate }: { level: any, status: string, on
 
     <div className="relative z-10 pt-2 flex items-center justify-between">
       <div>
-        <p className="text-[10px] text-text-gray font-black uppercase tracking-widest opacity-60">Investimento</p>
-        <p className="text-lg font-black text-slate-900 font-mono">MZN {level.investment.toLocaleString()}</p>
+        <p className="text-[10px] text-white/40 font-black uppercase tracking-widest opacity-60">Investimento</p>
+        <p className="text-lg font-black text-white font-mono">MZN {level.investment.toLocaleString()}</p>
       </div>
        {status !== 'active' ? (
          <motion.button 
@@ -782,17 +809,19 @@ const VipCard = ({ level, status, onActivate }: { level: any, status: string, on
     </div>
 
     {/* Background Level Indicator */}
-    <div className="absolute right-[-20px] bottom-[-40px] text-slate-900 opacity-[0.02] text-[180px] font-black select-none pointer-events-none tracking-tighter">
+    <div className="absolute right-[-20px] bottom-[-40px] text-white opacity-[0.02] text-[180px] font-black select-none pointer-events-none tracking-tighter">
         {level.id}
     </div>
   </motion.div>
 );
 
 // --- Financial Overlays ---
-const DepositOverlay = ({ onConfirm, settings }: { onConfirm: (amt: number, method: string) => void, settings: any }) => {
+const DepositOverlay = ({ onConfirm, settings }: { onConfirm: (amt: number, method: string, proofUrl?: string) => void, settings: any }) => {
   const { data: initialAmount, closeOverlay } = useOverlay();
   const [amount, setAmount] = useState(initialAmount ? initialAmount.toString() : '');
   const [method, setMethod] = useState('mpesa');
+  const [proof, setProof] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const getMethodData = (methodId: string) => {
     if (methodId === 'mpesa') return { number: settings.mpesaNumber, holder: settings.mpesaHolder };
@@ -801,52 +830,83 @@ const DepositOverlay = ({ onConfirm, settings }: { onConfirm: (amt: number, meth
     return FINANCIAL_METHODS.find(m => m.id === methodId);
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Imagem muito grande. Limite de 2MB.");
+        return;
+      }
+      setIsUploading(true);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProof(reader.result as string);
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const currentMethodData = getMethodData(method);
+
+  const canConfirm = amount && Number(amount) >= 100 && proof && !isUploading;
 
   return (
     <motion.div 
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[2000] bg-slate-50 flex flex-col p-6 overflow-y-auto"
+      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col p-6 overflow-y-auto pb-20"
     >
       <div className="flex justify-between items-center mb-10">
-        <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Recarregar</h2>
-        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-black/10 flex items-center justify-center text-slate-400">✕</button>
+        <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Recarregar</h2>
+        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-8 max-w-lg mx-auto w-full">
         <div>
-          <label className="text-[10px] font-black text-text-gray uppercase tracking-widest block mb-4">Escolha o Método</label>
+          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4 text-center">1. Escolha o Método</label>
           <div className="grid grid-cols-2 gap-4 mb-4">
             {FINANCIAL_METHODS.map(m => (
               <button 
                 key={m.id}
                 onClick={() => setMethod(m.id)}
-                className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-2 ${method === m.id ? 'border-gold bg-gold/5 shadow-lg shadow-gold/10' : 'border-black/5 bg-white shadow-sm'}`}
+                className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-2 ${method === m.id ? 'border-gold bg-gold/10 shadow-lg shadow-gold/10' : 'border-white/5 bg-card-bg/60 backdrop-blur-xl shadow-sm'}`}
               >
-                <div className={`w-3 h-3 rounded-full ${method === m.id ? 'bg-gold' : 'bg-slate-200'}`} />
-                <span className={`text-xs font-black uppercase tracking-widest ${method === m.id ? 'text-gold' : 'text-slate-400'}`}>{m.name}</span>
+                <div className={`w-3 h-3 rounded-full ${method === m.id ? 'bg-gold' : 'bg-white/10'}`} />
+                <span className={`text-xs font-black uppercase tracking-widest ${method === m.id ? 'text-gold' : 'text-white/40'}`}>{m.name}</span>
               </button>
             ))}
           </div>
 
-          <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait">
             {method && (
               <motion.div 
                 key={method}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="bg-gold/5 border border-gold/10 p-6 rounded-[32px] space-y-3"
+                className="bg-card-bg border border-gold/30 p-6 rounded-[32px] space-y-3 relative overflow-hidden shadow-2xl"
               >
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-black text-gold/60 uppercase tracking-widest">Enviar para:</span>
-                  <p className="text-xl font-black text-slate-900 font-mono tracking-widest leading-none">
-                    {currentMethodData?.number}
-                  </p>
+                <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
+                <div className="flex justify-between items-center group/item">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-black text-gold uppercase tracking-widest">Enviar para:</span>
+                    <p className="text-2xl font-black text-white font-mono tracking-widest leading-none">
+                      {currentMethodData?.number}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(currentMethodData?.number || '');
+                      alert('Copiado para a área de transferência!');
+                    }}
+                    className="w-12 h-12 rounded-2xl bg-gold/20 flex items-center justify-center text-gold border border-gold/30 active:scale-90 transition-all hover:bg-gold hover:text-white"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  </button>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-black text-gold/60 uppercase tracking-widest">Nome do Titular:</span>
-                  <p className="text-xs font-black text-slate-900 uppercase tracking-tighter">
+                <div className="flex flex-col gap-1 pt-2 border-t border-white/5">
+                  <span className="text-[10px] font-black text-gold/60 uppercase tracking-widest">Nome do Titular:</span>
+                  <p className="text-sm font-black text-white uppercase tracking-tight">
                     {currentMethodData?.holder}
                   </p>
                 </div>
@@ -856,33 +916,75 @@ const DepositOverlay = ({ onConfirm, settings }: { onConfirm: (amt: number, meth
         </div>
 
         <div>
-          <label className="text-[10px] font-black text-text-gray uppercase tracking-widest block mb-4">Valor do Depósito (MZN)</label>
+          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4 text-center">2. Valor Enviado (MZN)</label>
           <input 
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="1000"
-            className="w-full bg-white border border-black/5 rounded-[28px] p-8 text-center text-4xl font-black text-slate-900 font-mono focus:border-gold outline-none transition-all shadow-sm"
+            className="w-full bg-card-bg border border-white/10 rounded-[28px] p-8 text-center text-4xl font-black text-white font-mono focus:border-gold outline-none transition-all shadow-2xl"
           />
         </div>
 
-        <div className="bg-slate-100 border border-black/5 p-6 rounded-[32px] space-y-2">
+        <div>
+           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4 text-center">3. Carregar Comprovativo</label>
+           <div className="relative">
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden" 
+                id="proof-upload"
+              />
+              <label 
+                htmlFor="proof-upload"
+                className={`w-full aspect-video rounded-[32px] border-2 border-dashed flex flex-col items-center justify-center gap-4 cursor-pointer transition-all overflow-hidden ${proof ? 'border-gold bg-gold/5' : 'border-white/10 bg-card-bg hover:border-gold/30'}`}
+              >
+                {isUploading ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-8 h-8 border-4 border-gold border-t-transparent rounded-full animate-spin" />
+                    <span className="text-[10px] font-black text-gold uppercase tracking-widest">A processar...</span>
+                  </div>
+                ) : proof ? (
+                  <div className="relative w-full h-full">
+                    <img src={proof} alt="Comprovativo" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                      <span className="text-xs font-black text-white uppercase tracking-widest">Trocar Imagem</span>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-white/20">
+                      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs font-black text-white uppercase tracking-widest">Clique para Carregar</p>
+                      <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mt-1">Screenshot ou foto do recibo</p>
+                    </div>
+                  </>
+                )}
+              </label>
+           </div>
+        </div>
+
+        <div className="bg-card-bg border border-white/10 p-6 rounded-[32px] space-y-2 shadow-xl">
           <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-            <span className="text-text-gray">Processamento</span>
+            <span className="text-white/40">Processamento</span>
             <span className="text-gold">{FINANCIAL_METHODS.find(m => m.id === method)?.delay}</span>
           </div>
           <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-            <span className="text-text-gray">Taxa de Rede</span>
+            <span className="text-white/40">Taxa de Rede</span>
             <span className="text-gold">MZN 0.00</span>
           </div>
         </div>
 
         <button 
-          onClick={() => onConfirm(Number(amount), method)}
-          disabled={!amount || Number(amount) < 100}
-          className="w-full gold-gradient py-6 rounded-[32px] text-white font-black uppercase tracking-widest shadow-xl shadow-gold/20 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30"
+          onClick={() => onConfirm(Number(amount), method, proof || '')}
+          disabled={!canConfirm}
+          className="w-full gold-gradient py-6 rounded-[32px] text-white font-black uppercase tracking-widest shadow-xl shadow-gold/20 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30 flex items-center justify-center gap-3"
         >
-          Confirmar Depósito
+          {isUploading && <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+          <span>Confirmar Depósito</span>
         </button>
       </div>
     </motion.div>
@@ -898,37 +1000,53 @@ const WithdrawOverlay = ({ balance, onConfirm }: { balance: number, onConfirm: (
   return (
     <motion.div 
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[2000] bg-slate-50 flex flex-col p-6 overflow-y-auto"
+      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col p-6 overflow-y-auto"
     >
       <div className="flex justify-between items-center mb-10">
-        <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Retirada</h2>
-        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-black/10 flex items-center justify-center text-slate-400">✕</button>
+        <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Retirada</h2>
+        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
       </div>
 
       <div className="space-y-8">
-        <div className="bg-white p-8 rounded-[40px] border border-black/5 text-center shadow-sm">
-          <p className="text-[10px] font-black text-text-gray uppercase tracking-widest mb-2 font-mono">Disponível para Saque</p>
-          <h3 className="text-4xl font-black text-slate-900 font-mono leading-none">MZN {balance.toLocaleString()}</h3>
+        <div className="bg-card-bg p-8 rounded-[40px] border border-white/5 text-center shadow-2xl">
+          <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2 font-mono">Disponível para Saque</p>
+          <h3 className="text-4xl font-black text-white font-mono leading-none">MZN {balance.toLocaleString()}</h3>
         </div>
 
         <div>
-          <label className="text-[10px] font-black text-text-gray uppercase tracking-widest block mb-4">Número da Conta Móvel</label>
+           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4">Selecione o Canal de Saque</label>
+           <div className="grid grid-cols-2 gap-4">
+              {FINANCIAL_METHODS.filter(m => m.id !== 'bank').map(m => (
+                 <button 
+                  key={m.id}
+                  onClick={() => setMethod(m.id)}
+                  className={`p-5 rounded-[24px] border-2 transition-all flex flex-col items-center gap-2 ${method === m.id ? 'border-gold bg-gold/10 shadow-lg' : 'border-white/5 bg-card-bg'}`}
+                 >
+                    <div className={`w-3 h-3 rounded-full ${method === m.id ? 'bg-gold' : 'bg-white/10'}`} />
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${method === m.id ? 'text-gold' : 'text-white/40'}`}>{m.name}</span>
+                 </button>
+              ))}
+           </div>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4">Número da Conta Móvel</label>
           <input 
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="w-full bg-white border border-black/5 rounded-3xl p-6 text-slate-900 font-black text-lg focus:border-gold outline-none text-center shadow-sm"
+            className="w-full bg-card-bg border border-white/10 rounded-3xl p-6 text-white font-black text-lg focus:border-gold outline-none text-center shadow-xl"
           />
         </div>
 
         <div>
-          <label className="text-[10px] font-black text-text-gray uppercase tracking-widest block mb-4">Valor do Saque (MZN)</label>
+          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4">Valor do Saque (MZN)</label>
           <input 
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="Mínimo 500"
-            className="w-full bg-white border border-black/5 rounded-[28px] p-8 text-center text-4xl font-black text-slate-900 font-mono focus:border-gold outline-none transition-all shadow-sm"
+            className="w-full bg-card-bg border border-white/10 rounded-[28px] p-8 text-center text-4xl font-black text-white font-mono focus:border-gold outline-none transition-all shadow-2xl"
           />
         </div>
 
@@ -940,7 +1058,7 @@ const WithdrawOverlay = ({ balance, onConfirm }: { balance: number, onConfirm: (
           Processar Saque
         </button>
         
-        <p className="text-[9px] text-text-gray text-center font-bold px-10 leading-relaxed uppercase tracking-widest opacity-60">
+        <p className="text-[9px] text-white/40 text-center font-bold px-10 leading-relaxed uppercase tracking-widest opacity-60">
           O processamento pode levar de 5 a 30 minutos dependendo da sua operadora.
         </p>
       </div>
@@ -953,16 +1071,16 @@ const RecordsOverlay = ({ transactions }: { transactions: Transaction[] }) => {
   return (
     <motion.div 
       initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-      className="fixed inset-0 z-[2000] bg-slate-50 flex flex-col p-6"
+      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col p-6"
     >
       <div className="flex justify-between items-center mb-10">
-        <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Finanças</h2>
-        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-black/10 flex items-center justify-center text-slate-400">✕</button>
+        <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Finanças</h2>
+        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
       </div>
 
     <div className="flex-1 overflow-y-auto space-y-4">
       {transactions.map(tx => (
-        <div key={tx.id} className="bg-white border border-black/5 rounded-3xl p-6 flex justify-between items-center group hover:border-gold/20 transition-all shadow-sm">
+        <div key={tx.id} className="bg-card-bg border border-white/5 rounded-3xl p-6 flex justify-between items-center group hover:border-gold/20 transition-all shadow-xl">
           <div className="flex gap-4 items-center">
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
               tx.type === 'deposit' ? 'bg-green-500/10 text-green-500' : 
@@ -973,8 +1091,8 @@ const RecordsOverlay = ({ transactions }: { transactions: Transaction[] }) => {
                <TrendingUp className="w-6 h-6" />}
             </div>
             <div>
-              <h4 className="font-black text-slate-900 uppercase text-xs tracking-widest">{tx.type === 'deposit' ? 'Depósito' : tx.type === 'withdraw' ? 'Saque' : tx.type === 'reward' ? 'Prémio' : 'Investimento'}</h4>
-              <p className="text-[10px] text-text-gray font-mono mt-1">{tx.date} • {tx.method || 'Interno'}</p>
+              <h4 className="font-black text-white uppercase text-xs tracking-widest">{tx.type === 'deposit' ? 'Depósito' : tx.type === 'withdraw' ? 'Saque' : tx.type === 'reward' ? 'Prémio' : 'Investimento'}</h4>
+              <p className="text-[10px] text-white/40 font-mono mt-1">{tx.date} • {tx.method || 'Interno'}</p>
             </div>
           </div>
           <div className="text-right">
@@ -989,7 +1107,7 @@ const RecordsOverlay = ({ transactions }: { transactions: Transaction[] }) => {
       ))}
       
       {transactions.length === 0 && (
-        <div className="h-full flex flex-col items-center justify-center text-text-gray italic">
+        <div className="h-full flex flex-col items-center justify-center text-white/40 italic">
            <Grid className="w-12 h-12 mb-4 opacity-10" />
            <p className="text-sm">Nenhum registo encontrado.</p>
         </div>
@@ -1017,14 +1135,14 @@ const LuckyBoxOverlay = ({ onWin }: { onWin: (amt: number) => void }) => {
   return (
     <motion.div 
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[2000] bg-slate-50 flex flex-col items-center justify-center p-6"
+      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col items-center justify-center p-6"
     >
-      <button onClick={closeOverlay} className="absolute top-8 right-8 w-12 h-12 rounded-full border border-black/10 flex items-center justify-center text-slate-400 font-black">✕</button>
+      <button onClick={closeOverlay} className="absolute top-8 right-8 w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40 font-black">✕</button>
       
       <div className="text-center space-y-12 max-w-xs w-full">
         <div>
           <h2 className="text-4xl font-black text-gold uppercase tracking-tighter mb-2 italic">Caixa de Sorte</h2>
-          <p className="text-xs text-slate-500 font-bold tracking-widest uppercase px-4 leading-relaxed">Tente a sua sorte e ganha prémios diários em numerário</p>
+          <p className="text-xs text-white/40 font-bold tracking-widest uppercase px-4 leading-relaxed">Tente a sua sorte e ganha prémios diários em numerário</p>
         </div>
 
         <div className="relative aspect-square w-full flex items-center justify-center">
@@ -1053,7 +1171,7 @@ const LuckyBoxOverlay = ({ onWin }: { onWin: (amt: number) => void }) => {
                 >
                   +{wonAmount}
                 </motion.div>
-                <div className="text-xl font-black uppercase tracking-widest text-slate-900 border-b-4 border-gold/30 pb-1">MZN GANHOU!</div>
+                <div className="text-xl font-black uppercase tracking-widest text-white border-b-4 border-gold/30 pb-1">MZN GANHOU!</div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -1072,7 +1190,7 @@ const LuckyBoxOverlay = ({ onWin }: { onWin: (amt: number) => void }) => {
         ) : (
           <button 
             onClick={closeOverlay}
-            className="w-full bg-white py-6 rounded-[32px] text-slate-900 font-black uppercase tracking-widest border border-black/10 hover:bg-slate-50 transition-all shadow-sm"
+            className="w-full bg-white/5 py-6 rounded-[32px] text-white font-black uppercase tracking-widest border border-white/10 hover:bg-white/10 transition-all shadow-sm"
           >
             FECHAR
           </button>
@@ -1088,25 +1206,38 @@ const SupportOverlay = () => {
     <motion.div 
       initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 25 }}
-      className="fixed inset-0 z-[2000] bg-slate-50 flex flex-col p-6"
+      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col p-6"
     >
       <div className="flex justify-between items-center mb-10">
-        <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Atendimento</h2>
-        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-black/10 flex items-center justify-center text-slate-400">✕</button>
+        <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Atendimento</h2>
+        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-6">
-        <div className="bg-card-bg border border-black/5 p-8 rounded-[40px] text-center space-y-4 shadow-sm">
+        <div className="bg-card-bg/40 border border-white/5 p-8 rounded-[40px] text-center space-y-4 shadow-sm">
           <div className="w-20 h-20 bg-gold/10 rounded-3xl flex items-center justify-center text-gold mx-auto border border-gold/20">
             <Headphones className="w-10 h-10" />
           </div>
           <div>
-            <h3 className="text-xl font-black uppercase text-slate-900">Suporte Oficial</h3>
-            <p className="text-xs text-text-gray font-bold uppercase tracking-widest mt-1">Atendimento ao Cliente 24/7</p>
+            <h3 className="text-xl font-black uppercase text-white">Suporte Oficial</h3>
+            <p className="text-xs text-white/40 font-bold uppercase tracking-widest mt-1">Atendimento ao Cliente 24/7</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4">
+          <button 
+            onClick={() => openOverlay('live_chat')}
+            className="w-full bg-gold/5 border border-gold/10 p-6 rounded-[32px] flex items-center gap-6 hover:bg-gold/10 transition-all text-left shadow-sm group"
+          >
+            <div className="w-14 h-14 bg-gold rounded-2xl flex items-center justify-center text-white shadow-lg shadow-gold/20 group-hover:scale-105 transition-transform">
+              <Headphones className="w-8 h-8" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-gold uppercase tracking-widest">Atendimento Humano</p>
+              <p className="text-lg font-black text-white">Chat em Tempo Real</p>
+            </div>
+          </button>
+
           <button 
             onClick={() => openOverlay('ai_helper')}
             className="w-full gold-gradient border border-black/5 p-6 rounded-[32px] flex items-center gap-6 hover:brightness-110 transition-all text-left shadow-lg"
@@ -1139,13 +1270,13 @@ const SupportOverlay = () => {
           { icon: Phone, label: "WhatsApp VIP", value: "+258 84 877 8905", color: "bg-[#25D366]", link: "https://wa.me/258848778905" },
           { icon: Users, label: "Grupo Telegram", value: "@MOZA_OFFICIAL", color: "bg-[#0088cc]", link: "https://t.me/MOZA_OFFICIAL" },
         ].map((item, i) => (
-          <a key={i} href={item.link} target="_blank" rel="noopener noreferrer" className="w-full bg-card-bg border border-black/5 p-6 rounded-[32px] flex items-center gap-6 hover:bg-slate-50 transition-all text-left shadow-sm">
+          <a key={i} href={item.link} target="_blank" rel="noopener noreferrer" className="w-full bg-card-bg/40 border border-white/5 p-6 rounded-[32px] flex items-center gap-6 hover:bg-card-bg/60 transition-all text-left shadow-sm">
             <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg`}>
               <item.icon className="w-7 h-7" />
             </div>
             <div>
-              <p className="text-[10px] font-black text-text-gray uppercase tracking-widest">{item.label}</p>
-              <p className="text-lg font-black font-mono text-slate-900">{item.value}</p>
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">{item.label}</p>
+              <p className="text-lg font-black font-mono text-white">{item.value}</p>
             </div>
           </a>
         ))}
@@ -1157,12 +1288,64 @@ const SupportOverlay = () => {
 
 const AiHelperOverlay = () => {
   const { closeOverlay } = useOverlay();
-  const [messages, setMessages] = useState<{ role: 'user' | 'bot', text: string }[]>([
-    { role: 'bot', text: 'Olá! Sou o Assistente IA da MOZA. Como posso ajudar com os seus investimentos hoje?' }
-  ]);
+  const [messages, setMessages] = useState<{ role: 'user' | 'bot', text: string }[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let unsubscribe: () => void;
+    
+    const setupHistory = async () => {
+      if (!auth.currentUser) {
+        setMessages([{ role: 'bot', text: 'Por favor, faça login para usar o assistente.' }]);
+        setLoadingHistory(false);
+        return;
+      }
+
+      const q = query(
+        collection(db, 'ai_messages'),
+        where('userId', '==', auth.currentUser.uid),
+        orderBy('createdAt', 'desc'),
+        limit(10)
+      );
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const history = snapshot.docs
+          .map(doc => ({ 
+            id: doc.id,
+            role: doc.data().role as 'user' | 'bot', 
+            text: doc.data().text 
+          }))
+          .sort((a, b) => {
+            // Re-order by id or something if needed, but actually since we ordered desc in query, we reverse manually
+            return 0; // Handled by reverse below usually if we just mapper them
+          });
+        
+        // Correct way to get chronological order from desc query:
+        const ChronoHistory = snapshot.docs
+          .map(doc => ({ 
+            role: doc.data().role as 'user' | 'bot', 
+            text: doc.data().text 
+          }))
+          .reverse();
+
+        if (ChronoHistory.length === 0) {
+          setMessages([{ role: 'bot', text: 'Olá! Sou o Assistente IA da MOZA. Como posso ajudar com os seus investimentos hoje?' }]);
+        } else {
+          setMessages(ChronoHistory);
+        }
+        setLoadingHistory(false);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, 'ai_messages');
+        setLoadingHistory(false);
+      });
+    };
+
+    setupHistory();
+    return () => unsubscribe && unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -1170,28 +1353,51 @@ const AiHelperOverlay = () => {
     }
   }, [messages]);
 
+  const saveMessage = async (role: 'user' | 'bot', text: string) => {
+    if (!auth.currentUser) return;
+    try {
+      await addDoc(collection(db, 'ai_messages'), {
+        userId: auth.currentUser.uid,
+        role,
+        text,
+        createdAt: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'ai_messages');
+    }
+  };
+
   const handleSend = async () => {
-    if (!input.trim() || isTyping) return;
+    if (!input.trim() || isTyping || !auth.currentUser) return;
 
     const userMsg = input.trim();
     setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
     setInput('');
     setIsTyping(true);
+    
+    // Persist user message
+    await saveMessage('user', userMsg);
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
+      const response = await ai.models.generateContent({ 
+        model: "gemini-3-flash-preview",
         contents: userMsg,
         config: {
-          systemInstruction: "Você é um assistente de suporte especializado na plataforma MOZA Investimentos em Moçambique. Ajude os usuários com dúvidas sobre depósitos (via M-Pesa/e-Mola), saques, níveis VIP e como ganhar prémios com a Caixa Sorte. Seja profissional, prestativo e fale português de Moçambique. Mantenha as respostas curtas e diretas.",
-        },
+          systemInstruction: "Você é um assistente de suporte especializado na plataforma MOZA Investimentos em Moçambique. Ajude os usuários com dúvidas sobre depósitos (via M-Pesa/e-Mola), saques, níveis VIP e como ganhar prémios com a Caixa Sorte. Seja profissional, prestativo e fale português de Moçambique. Mantenha as respostas curtas e diretas. Não use Negrito ou Markdown complexo.",
+        }
       });
 
-      setMessages(prev => [...prev, { role: 'bot', text: response.text || 'Desculpe, tive um problema ao processar sua solicitação.' }]);
+      const botText = response.text || 'Desculpe, tive um problema ao processar sua solicitação.';
+      
+      setMessages(prev => [...prev, { role: 'bot', text: botText }]);
+      // Persist bot response
+      await saveMessage('bot', botText);
     } catch (error) {
       console.error(error);
-      setMessages(prev => [...prev, { role: 'bot', text: 'Lamento, não consegui conectar ao serviço de IA agora. Por favor, tente novamente mais tarde.' }]);
+      const errorMsg = 'Lamento, não consegui conectar ao serviço de IA agora. Por favor, tente novamente mais tarde.';
+      setMessages(prev => [...prev, { role: 'bot', text: errorMsg }]);
+      await saveMessage('bot', errorMsg);
     } finally {
       setIsTyping(false);
     }
@@ -1200,34 +1406,45 @@ const AiHelperOverlay = () => {
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-      className="fixed inset-0 z-[3000] bg-slate-50 flex flex-col"
+      className="fixed inset-0 z-[3000] bg-dark-bg flex flex-col"
     >
-      <div className="p-6 border-b border-black/5 flex justify-between items-center bg-white/80 backdrop-blur-xl">
+      <div className="p-6 border-b border-white/5 flex justify-between items-center bg-card-bg/80 backdrop-blur-xl">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 gold-gradient rounded-xl flex items-center justify-center text-white">
             <Bot className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="font-black text-slate-900 uppercase text-sm tracking-widest">Assistente IA</h3>
+            <h3 className="font-black text-white uppercase text-sm tracking-widest">Assistente IA</h3>
             <p className="text-[8px] text-green-500 font-bold uppercase tracking-widest">Online Agora</p>
           </div>
         </div>
-        <button onClick={closeOverlay} className="w-10 h-10 rounded-full border border-black/10 flex items-center justify-center text-slate-400">✕</button>
+        <button onClick={closeOverlay} className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] p-5 rounded-[24px] text-sm font-medium leading-relaxed ${
-              m.role === 'user' ? 'gold-gradient text-white rounded-tr-none' : 'bg-white border border-black/5 text-slate-700 rounded-tl-none shadow-sm'
-            }`}>
-              {m.text}
-            </div>
+        {loadingHistory ? (
+          <div className="flex flex-col items-center justify-center h-full gap-4">
+            <motion.div 
+              animate={{ rotate: 360 }} 
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full"
+            />
+            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Carregando Histórico...</p>
           </div>
-        ))}
+        ) : (
+          messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] p-5 rounded-[24px] text-sm font-medium leading-relaxed ${
+                m.role === 'user' ? 'gold-gradient text-white rounded-tr-none' : 'bg-card-bg/60 border border-white/5 text-white/90 rounded-tl-none shadow-sm'
+              }`}>
+                {m.text}
+              </div>
+            </div>
+          ))
+        )}
         {isTyping && (
           <div className="flex justify-start">
-            <div className="bg-white border border-black/5 p-4 rounded-[24px] rounded-tl-none flex gap-1">
+            <div className="bg-card-bg/60 border border-white/5 p-4 rounded-[24px] rounded-tl-none flex gap-1">
               <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-gold rounded-full" />
               <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-gold rounded-full" />
               <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-gold rounded-full" />
@@ -1236,7 +1453,7 @@ const AiHelperOverlay = () => {
         )}
       </div>
 
-      <div className="p-6 bg-white border-t border-black/5">
+      <div className="p-6 bg-card-bg border-t border-white/5">
         <div className="relative">
           <input 
             type="text" 
@@ -1244,11 +1461,141 @@ const AiHelperOverlay = () => {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder="Como posso ajudar?"
-            className="w-full bg-slate-50 border border-black/5 rounded-[28px] py-6 pl-8 pr-20 text-slate-900 font-medium outline-none focus:border-gold/50 transition-all"
+            className="w-full bg-card-bg/40 border border-white/10 rounded-[28px] py-6 pl-8 pr-20 text-white font-medium outline-none focus:border-gold/50 transition-all"
           />
           <button 
             onClick={handleSend}
-            disabled={!input.trim() || isTyping}
+            disabled={!input.trim() || isTyping || !auth.currentUser}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-14 h-14 gold-gradient rounded-full flex items-center justify-center text-white shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+          >
+            <Send className="w-6 h-6" />
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+const LiveChatOverlay = () => {
+  const { closeOverlay } = useOverlay();
+  const [messages, setMessages] = useState<any[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    const q = query(
+      collection(db, 'support_messages'),
+      where('userId', '==', auth.currentUser.uid),
+      orderBy('createdAt', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setMessages(msgs);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'support_messages');
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim() || !auth.currentUser) return;
+
+    const userMsg = input.trim();
+    setInput('');
+
+    try {
+      await addDoc(collection(db, 'support_messages'), {
+        userId: auth.currentUser.uid,
+        senderId: auth.currentUser.uid,
+        role: 'user',
+        text: userMsg,
+        createdAt: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'support_messages');
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+      className="fixed inset-0 z-[3000] bg-dark-bg flex flex-col"
+    >
+      <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#010204] backdrop-blur-xl">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-gold rounded-xl flex items-center justify-center text-white">
+            <Headphones className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="font-black text-white uppercase text-sm tracking-widest">Suporte Direto</h3>
+            <p className="text-[8px] text-green-500 font-bold uppercase tracking-widest">Equipa Online</p>
+          </div>
+        </div>
+        <button onClick={closeOverlay} className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
+      </div>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-full gap-4">
+            <motion.div 
+              animate={{ rotate: 360 }} 
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full"
+            />
+            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Conectando ao Suporte...</p>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-4 p-10">
+            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center text-white/20">
+              <MessageSquare className="w-8 h-8" />
+            </div>
+            <div>
+              <p className="text-white font-black uppercase text-sm">Inicie uma conversa</p>
+              <p className="text-white/40 text-[10px] font-medium uppercase tracking-widest mt-1">Nossa equipa está pronta para ajudar.</p>
+            </div>
+          </div>
+        ) : (
+          messages.map((m, i) => (
+            <div key={m.id || i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] p-5 rounded-[24px] text-sm font-medium leading-relaxed ${
+                m.role === 'user' ? 'gold-gradient text-white rounded-tr-none' : 'bg-card-bg/60 border border-white/5 text-white/90 rounded-tl-none shadow-sm'
+              }`}>
+                {m.text}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="p-6 bg-card-bg border-t border-white/5">
+        <div className="relative">
+          <input 
+            type="text" 
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Descreva o seu problema..."
+            className="w-full bg-card-bg/40 border border-white/10 rounded-[28px] py-6 pl-8 pr-20 text-white font-medium outline-none focus:border-gold/50 transition-all"
+          />
+          <button 
+            onClick={handleSend}
+            disabled={!input.trim() || !auth.currentUser}
             className="absolute right-3 top-1/2 -translate-y-1/2 w-14 h-14 gold-gradient rounded-full flex items-center justify-center text-white shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
           >
             <Send className="w-6 h-6" />
@@ -1274,18 +1621,18 @@ const MarketOverlay = () => {
   return (
     <motion.div 
       initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-      className="fixed inset-0 z-[2000] bg-slate-50 flex flex-col p-6"
+      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col p-6"
     >
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Mercado em Tempo Real</h2>
-        <button onClick={closeOverlay} className="w-10 h-10 rounded-full border border-black/10 flex items-center justify-center text-slate-400">✕</button>
+        <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Mercado em Tempo Real</h2>
+        <button onClick={closeOverlay} className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-6">
-        <div className="bg-white border border-black/5 p-6 rounded-[32px] h-64 shadow-xl relative overflow-hidden">
+        <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] h-64 shadow-xl relative overflow-hidden">
            <div className="absolute top-4 left-6 z-10">
               <p className="text-[10px] font-black text-gold uppercase tracking-[0.2em]">BTC / MZN</p>
-              <h4 className="text-2xl font-black text-slate-900 font-mono leading-none">6,124,900</h4>
+              <h4 className="text-2xl font-black text-white font-mono leading-none">6,124,900</h4>
            </div>
            <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data}>
@@ -1301,32 +1648,32 @@ const MarketOverlay = () => {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white p-6 rounded-3xl border border-black/5 flex flex-col gap-2 shadow-sm">
-            <span className="text-[9px] font-black text-text-gray uppercase tracking-widest">Sentimento</span>
+          <div className="bg-card-bg/40 p-6 rounded-3xl border border-white/5 flex flex-col gap-2 shadow-sm">
+            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Sentimento</span>
             <span className="text-xl font-black text-green-500">ALTA (BULLISH)</span>
             <span className="text-[10px] text-green-500/50 font-bold uppercase">Compra Forte</span>
           </div>
-          <div className="bg-white p-6 rounded-3xl border border-black/5 flex flex-col gap-2 shadow-sm">
-            <span className="text-[9px] font-black text-text-gray uppercase tracking-widest">Volatilidade</span>
-            <span className="text-xl font-black text-slate-900">4.2%</span>
-            <span className="text-[10px] text-text-gray font-bold uppercase">Média-Alta</span>
+          <div className="bg-card-bg/40 p-6 rounded-3xl border border-white/5 flex flex-col gap-2 shadow-sm">
+            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Volatilidade</span>
+            <span className="text-xl font-black text-white">4.2%</span>
+            <span className="text-[10px] text-white/40 font-bold uppercase">Média-Alta</span>
           </div>
         </div>
 
         <div className="space-y-4 pb-10">
-           <h3 className="text-[10px] font-black text-text-gray uppercase tracking-[0.4em] px-2">Tendências Moçambique</h3>
+           <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em] px-2">Tendências Moçambique</h3>
            {[
              { name: 'Moza Coin', price: 'MZN 124.5', trend: '+2.4%' },
              { name: 'Ethereum', price: 'MZN 42,900', trend: '-0.8%' },
              { name: 'Solana', price: 'MZN 8,240', trend: '+12.1%' },
            ].map((t, i) => (
-             <div key={i} className="flex justify-between items-center p-5 bg-white rounded-2xl border border-black/5 group hover:border-gold/30 transition-all shadow-sm">
+             <div key={i} className="flex justify-between items-center p-5 bg-white/5 rounded-2xl border border-white/5 group hover:border-gold/30 transition-all shadow-sm">
                 <div className="flex items-center gap-4">
-                   <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center font-black text-gold border border-black/5">#{i+1}</div>
-                   <span className="font-black text-sm uppercase tracking-widest text-slate-900">{t.name}</span>
+                   <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center font-black text-gold border border-white/5">#{i+1}</div>
+                   <span className="font-black text-sm uppercase tracking-widest text-white">{t.name}</span>
                 </div>
                 <div className="text-right">
-                  <p className="font-black text-sm font-mono text-slate-900">{t.price}</p>
+                  <p className="font-black text-sm font-mono text-white">{t.price}</p>
                   <p className={`text-[10px] font-black ${t.trend.startsWith('+') ? 'text-green-500' : 'text-red-500'}`}>{t.trend}</p>
                 </div>
              </div>
@@ -1380,34 +1727,34 @@ const EducationOverlay = () => {
     return (
       <motion.div 
         initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-        className="fixed inset-0 z-[2030] bg-slate-50 flex flex-col p-6 overflow-y-auto"
+        className="fixed inset-0 z-[2030] bg-dark-bg flex flex-col p-6 overflow-y-auto"
       >
         <div className="flex items-center gap-4 mb-8">
-          <button onClick={() => setSelectedArticle(null)} className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center text-gold border border-black/5">
+          <button onClick={() => setSelectedArticle(null)} className="w-10 h-10 rounded-full bg-card-bg/40 flex items-center justify-center text-gold border border-white/5">
             <ChevronRight className="w-5 h-5 rotate-180" />
           </button>
-          <span className="text-[10px] font-black text-text-gray uppercase tracking-widest">Voltar para Biblioteca</span>
+          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Voltar para Biblioteca</span>
         </div>
         
         <div className="space-y-6">
           <div className="space-y-2">
             <span className="text-[10px] font-black text-gold uppercase tracking-[0.3em]">{selectedArticle.date}</span>
-            <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-tight">{selectedArticle.title}</h2>
+            <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-tight">{selectedArticle.title}</h2>
           </div>
           
-          <div className="w-full h-48 rounded-[40px] bg-black/5 border border-black/5 flex items-center justify-center">
+          <div className="w-full h-48 rounded-[40px] bg-card-bg/40 border border-white/5 flex items-center justify-center">
             <BookOpen className="w-16 h-16 text-gold/20" />
           </div>
           
-          <p className="text-sm text-text-gray/90 leading-relaxed font-medium">
+          <p className="text-sm text-white/60 leading-relaxed font-medium">
             {selectedArticle.content}
           </p>
           
-          <div className="p-8 rounded-[40px] bg-card-bg border border-black/5 text-center space-y-4 mt-8 shadow-sm">
+          <div className="p-8 rounded-[40px] bg-card-bg/40 border border-white/5 text-center space-y-4 mt-8 shadow-sm">
              <div className="w-12 h-12 bg-indigo-500/10 rounded-full flex items-center justify-center text-indigo-500 mx-auto border border-indigo-500/20">
                 <CheckCircle2 className="w-6 h-6" />
              </div>
-             <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Leitura Concluída</p>
+             <p className="text-[10px] font-black text-white uppercase tracking-widest">Leitura Concluída</p>
              <button onClick={() => setSelectedArticle(null)} className="text-xs font-bold text-gold uppercase tracking-widest underline underline-offset-4">Explorar outros tópicos</button>
           </div>
         </div>
@@ -1420,22 +1767,22 @@ const EducationOverlay = () => {
       initial={{ opacity: 0, x: '100%' }} 
       animate={{ opacity: 1, x: 0 }} 
       exit={{ opacity: 0, x: '100%' }}
-      className="fixed inset-0 z-[2000] bg-slate-50 flex flex-col p-6 overflow-y-auto"
+      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col p-6 overflow-y-auto"
     >
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-gold/10 rounded-2xl flex items-center justify-center text-gold border border-gold/20">
             <GraduationCap className="w-6 h-6" />
           </div>
-          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Educação</h2>
+          <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Educação</h2>
         </div>
-        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-black/10 flex items-center justify-center text-slate-400">✕</button>
+        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
       </div>
 
       <div className="flex gap-3 mb-8 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
         <button 
           onClick={() => setActiveCategory('all')}
-          className={`px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeCategory === 'all' ? 'gold-gradient text-white shadow-lg' : 'bg-black/5 text-text-gray'}`}
+          className={`px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeCategory === 'all' ? 'gold-gradient text-white shadow-lg' : 'bg-card-bg/40 text-white/40'}`}
         >
           Tudo
         </button>
@@ -1443,7 +1790,7 @@ const EducationOverlay = () => {
           <button 
             key={cat.id}
             onClick={() => setActiveCategory(cat.id)}
-            className={`px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${activeCategory === cat.id ? 'gold-gradient text-white shadow-lg' : 'bg-black/5 text-text-gray'}`}
+            className={`px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${activeCategory === cat.id ? 'gold-gradient text-white shadow-lg' : 'bg-card-bg/40 text-white/40'}`}
           >
             <cat.icon className="w-3.5 h-3.5" />
             {cat.name}
@@ -1459,19 +1806,19 @@ const EducationOverlay = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.1 }}
             onClick={() => setSelectedArticle(article)}
-            className="bg-card-bg border border-black/5 p-6 rounded-[32px] space-y-4 group hover:border-gold/30 transition-all cursor-pointer shadow-sm hover:shadow-md"
+            className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-4 group hover:border-gold/30 transition-all cursor-pointer shadow-sm hover:shadow-md"
           >
             <div className="flex justify-between items-start">
               <span className="text-[10px] font-black text-gold uppercase tracking-[0.3em]">{article.date}</span>
-              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-text-gray group-hover:text-gold transition-colors border border-black/5">
+              <div className="w-8 h-8 rounded-full bg-card-bg/40 flex items-center justify-center text-white/40 group-hover:text-gold transition-colors border border-white/5">
                 <ChevronRight className="w-4 h-4" />
               </div>
             </div>
             <div className="space-y-2">
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-tight group-hover:text-gold transition-colors">{article.title}</h3>
-              <p className="text-xs text-text-gray/80 font-medium leading-relaxed">{article.excerpt}</p>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight leading-tight group-hover:text-gold transition-colors">{article.title}</h3>
+              <p className="text-xs text-white/60 font-medium leading-relaxed">{article.excerpt}</p>
             </div>
-            <div className="pt-4 border-t border-black/5">
+            <div className="pt-4 border-t border-white/5">
               <button className="text-[10px] font-black text-gold uppercase tracking-widest flex items-center gap-2 hover:gap-3 transition-all">
                 Ler Artigo Completo <ExternalLink className="w-3 h-3" />
               </button>
@@ -1480,13 +1827,13 @@ const EducationOverlay = () => {
         ))}
       </div>
 
-      <div className="mt-12 p-8 rounded-[40px] bg-slate-100 border border-black/5 text-center space-y-4 shadow-sm">
+      <div className="mt-12 p-8 rounded-[40px] bg-card-bg/40 border border-white/5 text-center space-y-4 shadow-sm">
         <div className="w-16 h-16 bg-gold/10 rounded-full flex items-center justify-center text-gold mx-auto border border-gold/20">
           <Bot className="w-8 h-8" />
         </div>
         <div className="space-y-1">
-          <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Precisa de Ajuda Pessoal?</h4>
-          <p className="text-[10px] font-black text-text-gray uppercase tracking-widest leading-relaxed">
+          <h4 className="text-lg font-black text-white uppercase tracking-tighter">Precisa de Ajuda Pessoal?</h4>
+          <p className="text-[10px] font-black text-white/40 uppercase tracking-widest leading-relaxed">
             O nosso assistente de IA está pronto para responder às suas dúvidas financeiras 24/7.
           </p>
         </div>
@@ -1512,23 +1859,23 @@ const LoanOverlay = ({ balance, activeVip, onConfirm }: { balance: number, activ
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-      className="fixed inset-0 z-[2000] bg-slate-50 flex flex-col p-6 overflow-y-auto"
+      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col p-6 overflow-y-auto"
     >
       <div className="flex justify-between items-center mb-10">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-gold/10 rounded-2xl flex items-center justify-center text-gold border border-gold/20">
             <Landmark className="w-6 h-6" />
           </div>
-          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Crédito MOZA</h2>
+          <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Crédito MOZA</h2>
         </div>
-        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-black/10 flex items-center justify-center text-slate-400">✕</button>
+        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
       </div>
 
       <div className="space-y-8">
-        <div className="bg-white border border-black/5 p-8 rounded-[40px] space-y-4 shadow-sm">
+        <div className="bg-card-bg/40 border border-white/5 p-8 rounded-[40px] space-y-4 shadow-sm">
           <div className="space-y-1">
-            <p className="text-[10px] font-black text-text-gray uppercase tracking-widest">Limite Disponível</p>
-            <p className="text-3xl font-black text-slate-900 font-mono">MZN {loanLimit.toLocaleString()}</p>
+            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Limite Disponível</p>
+            <p className="text-3xl font-black text-white font-mono">MZN {loanLimit.toLocaleString()}</p>
           </div>
           <p className="text-[10px] font-bold text-gold uppercase tracking-widest leading-relaxed">
             O seu crédito é baseado no seu nível VIP. Aumente o seu VIP para desbloquear limites maiores.
@@ -1536,15 +1883,15 @@ const LoanOverlay = ({ balance, activeVip, onConfirm }: { balance: number, activ
         </div>
 
         <div className="space-y-4">
-          <label className="text-[10px] font-black text-text-gray uppercase tracking-widest block px-2">Selecione o Valor</label>
+          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block px-2">Selecione o Valor</label>
           <div className="grid grid-cols-2 gap-4">
             {loanOptions.map(amt => (
               <button 
                 key={amt}
                 onClick={() => setSelectedAmount(amt)}
-                className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-2 ${selectedAmount === amt ? 'border-gold bg-gold/5 shadow-lg shadow-gold/10' : 'border-black/5 bg-white shadow-sm'}`}
+                className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-2 ${selectedAmount === amt ? 'border-gold bg-gold/5 shadow-lg shadow-gold/10' : 'border-white/5 bg-card-bg/40 shadow-sm'}`}
               >
-                <span className={`text-xl font-black font-mono ${selectedAmount === amt ? 'text-gold' : 'text-slate-900'}`}>MZN {amt}</span>
+                <span className={`text-xl font-black font-mono ${selectedAmount === amt ? 'text-gold' : 'text-white'}`}>MZN {amt}</span>
                 <span className="text-[9px] font-black text-gold uppercase tracking-widest">Aprovação Instantânea</span>
               </button>
             ))}
@@ -1554,17 +1901,17 @@ const LoanOverlay = ({ balance, activeVip, onConfirm }: { balance: number, activ
         {selectedAmount && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-white border border-black/5 p-6 rounded-[32px] space-y-4 shadow-sm"
+            className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm"
           >
             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-              <span className="text-text-gray">Taxa de Juro (5%)</span>
-              <span className="text-slate-900">MZN {(selectedAmount * 0.05).toLocaleString()}</span>
+              <span className="text-white/40">Taxa de Juro (5%)</span>
+              <span className="text-white">MZN {(selectedAmount * 0.05).toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-              <span className="text-text-gray">Total a Pagar</span>
+              <span className="text-white/40">Total a Pagar</span>
               <span className="text-gold">MZN {(selectedAmount * 1.05).toLocaleString()}</span>
             </div>
-            <p className="text-[9px] text-text-gray/60 uppercase font-bold leading-relaxed">
+            <p className="text-[9px] text-white/40 uppercase font-bold leading-relaxed">
               * O valor será debitado automaticamente dos seus rendimentos diários até à liquidação total.
             </p>
           </motion.div>
@@ -1587,43 +1934,43 @@ const AboutOverlay = () => {
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-      className="fixed inset-0 z-[2000] bg-slate-50 flex flex-col p-6 overflow-y-auto"
+      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col p-6 overflow-y-auto"
     >
       <div className="flex justify-between items-center mb-10">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-gold/10 rounded-2xl flex items-center justify-center text-gold border border-gold/20">
             <Building2 className="w-6 h-6" />
           </div>
-          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Empresa</h2>
+          <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Empresa</h2>
         </div>
-        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-black/10 flex items-center justify-center text-slate-400">✕</button>
+        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
       </div>
 
     <div className="space-y-8 pb-10">
-      <div className="bg-white border border-black/5 p-8 rounded-[40px] space-y-6 shadow-sm">
+      <div className="bg-card-bg/40 border border-white/5 p-8 rounded-[40px] space-y-6 shadow-sm">
         <div className="space-y-2">
           <h3 className="text-2xl font-black text-gold uppercase underline decoration-gold/30 underline-offset-8 decoration-2">{COMPANY_INFO.name}</h3>
-          <p className="text-xs text-text-gray font-bold uppercase tracking-widest">Fundada em {COMPANY_INFO.since} • {COMPANY_INFO.headquarters}</p>
+          <p className="text-xs text-white/40 font-bold uppercase tracking-widest">Fundada em {COMPANY_INFO.since} • {COMPANY_INFO.headquarters}</p>
         </div>
-        <p className="text-sm leading-relaxed text-slate-700 font-medium">
+        <p className="text-sm leading-relaxed text-white/70 font-medium">
           {COMPANY_INFO.mission}
         </p>
-        <div className="pt-4 border-t border-black/5 flex items-center gap-3">
+        <div className="pt-4 border-t border-white/5 flex items-center gap-3">
           <ShieldCheck className="w-5 h-5 text-green-500" />
           <span className="text-[10px] font-black uppercase tracking-widest text-green-500">Licença Oficial: {COMPANY_INFO.license}</span>
         </div>
       </div>
 
       <div className="space-y-4">
-        <h4 className="text-[10px] font-black text-text-gray uppercase tracking-[0.4em] px-2">Certificações de Confiança</h4>
+        <h4 className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em] px-2">Certificações de Confiança</h4>
         {COMPANY_INFO.certificates.map(cert => (
-          <div key={cert.id} className="bg-white border border-black/5 p-6 rounded-[32px] flex items-center gap-5 shadow-sm">
+          <div key={cert.id} className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] flex items-center gap-5 shadow-sm">
             <div className="w-12 h-12 rounded-2xl bg-gold/5 flex items-center justify-center text-gold border border-gold/10">
               <Award className="w-6 h-6" />
             </div>
             <div>
-              <p className="font-black text-sm uppercase text-slate-900">{cert.title}</p>
-              <p className="text-[10px] text-text-gray font-bold uppercase tracking-widest mt-1">{cert.issuer}</p>
+              <p className="font-black text-sm uppercase text-white">{cert.title}</p>
+              <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1">{cert.issuer}</p>
             </div>
             <div className="ml-auto">
               <CheckCircle2 className="w-5 h-5 text-green-500" />
@@ -1647,6 +1994,7 @@ const DepositManagerOverlay = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'pending' | 'completed' | 'failed' | 'all'>('pending');
+  const [selectedProof, setSelectedProof] = useState<string | null>(null);
 
   useEffect(() => {
     let q = query(
@@ -1680,14 +2028,23 @@ const DepositManagerOverlay = () => {
         const txRef = doc(db, 'transactions', txId);
         const userRef = doc(db, 'users', userId);
         
-        const txSnap = await transaction.get(txRef);
+        const [txSnap, userSnap] = await Promise.all([
+          transaction.get(txRef),
+          transaction.get(userRef)
+        ]);
+
         if (!txSnap.exists()) throw new Error('Transação não encontrada');
         if (txSnap.data().status !== 'pending') throw new Error('Transação já processada');
 
         transaction.update(txRef, { status, updatedAt: serverTimestamp() });
         
         if (status === 'completed') {
-          transaction.update(userRef, { balance: increment(amount), updatedAt: serverTimestamp() });
+          if (userSnap.exists()) {
+            transaction.update(userRef, { 
+              balance: increment(amount), 
+              updatedAt: serverTimestamp() 
+            });
+          }
         }
       });
       alert(`Depósito ${status === 'completed' ? 'Aprovado' : 'Rejeitado'}!`);
@@ -1707,39 +2064,56 @@ const DepositManagerOverlay = () => {
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 1.1 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-      className="fixed inset-0 z-[2030] bg-slate-50 flex flex-col overflow-hidden"
+      className="fixed inset-0 z-[2030] bg-dark-bg flex flex-col overflow-hidden"
     >
-      <div className="p-6 bg-white border-b border-black/5">
+      <AnimatePresence>
+        {selectedProof && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[2100] bg-black/90 flex items-center justify-center p-6"
+            onClick={() => setSelectedProof(null)}
+          >
+            <motion.img 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              src={selectedProof} 
+              className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+            />
+            <button className="absolute top-10 right-10 text-white text-4xl">✕</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="p-6 bg-card-bg/40 border-b border-white/5">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
              <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center text-gold border border-gold/20">
                <DollarSign className="w-5 h-5" />
              </div>
              <div>
-               <h2 className="text-xl font-black text-slate-900 uppercase tracking-tighter leading-tight">Gestor de Depósitos</h2>
-               <p className="text-[10px] text-text-gray font-black uppercase tracking-widest">Aprovação e Auditoria de Transações</p>
+               <h2 className="text-xl font-black text-white uppercase tracking-tighter leading-tight">Gestor de Depósitos</h2>
+               <p className="text-[10px] text-white/40 font-black uppercase tracking-widest">Aprovação e Auditoria de Transações</p>
              </div>
           </div>
-          <button onClick={closeOverlay} className="w-10 h-10 rounded-full border border-black/10 flex items-center justify-center text-slate-400">✕</button>
+          <button onClick={closeOverlay} className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
         </div>
 
         <div className="space-y-4">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-gray" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
             <input 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="PROCURAR POR ID, UTILIZADOR OU MÉTODO..."
-              className="w-full bg-slate-100 border border-black/5 rounded-2xl py-4 pl-12 pr-4 text-xs font-black text-slate-900 focus:outline-none focus:border-gold/30 uppercase tracking-widest"
+              className="w-full bg-card-bg/40 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-xs font-black text-white focus:outline-none focus:border-gold/30 uppercase tracking-widest"
             />
           </div>
 
-          <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl">
+          <div className="flex gap-2 p-1 bg-card-bg/40 rounded-2xl">
             {['pending', 'completed', 'failed', 'all'].map((s) => (
               <button
                 key={s}
                 onClick={() => setFilterStatus(s as any)}
-                className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${filterStatus === s ? 'bg-gold text-white shadow-lg shadow-gold/20' : 'text-text-gray hover:bg-black/5'}`}
+                className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${filterStatus === s ? 'bg-gold text-white shadow-lg shadow-gold/20' : 'text-white/40 hover:bg-card-bg/60'}`}
               >
                 {s === 'pending' ? 'Pendentes' : s === 'completed' ? 'Sucesso' : s === 'failed' ? 'Falhas' : 'Todos'}
               </button>
@@ -1752,24 +2126,24 @@ const DepositManagerOverlay = () => {
         {loading ? (
           <div className="flex justify-center py-20"><RefreshCcw className="w-8 h-8 text-gold animate-spin" /></div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 text-text-gray font-black uppercase tracking-widest opacity-50">Nenhuma transação encontrada</div>
+          <div className="text-center py-20 text-white/40 font-black uppercase tracking-widest opacity-50">Nenhuma transação encontrada</div>
         ) : (
           filtered.map(tx => (
-            <div key={tx.id} className="bg-white border border-black/5 p-6 rounded-[32px] space-y-4 relative overflow-hidden group shadow-sm">
+            <div key={tx.id} className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-4 relative overflow-hidden group shadow-sm">
               <div className="flex justify-between items-start relative z-10">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                      tx.status === 'pending' ? 'bg-blue-500/10 text-blue-600' :
-                      tx.status === 'completed' ? 'bg-green-500/10 text-green-600' :
-                      'bg-red-500/10 text-red-600'
+                      tx.status === 'pending' ? 'bg-blue-500/10 text-blue-400' :
+                      tx.status === 'completed' ? 'bg-green-500/10 text-green-400' :
+                      'bg-red-500/10 text-red-400'
                     }`}>
                       {tx.status}
                     </span>
-                    <span className="text-[10px] text-text-gray font-mono uppercase">#{tx.id.slice(-8)}</span>
+                    <span className="text-[10px] text-white/40 font-mono uppercase">#{tx.id.slice(-8)}</span>
                   </div>
-                  <p className="text-2xl font-black text-slate-900 font-mono leading-none">MZN {tx.amount?.toLocaleString()}</p>
-                  <div className="flex items-center gap-3 text-[10px] text-text-gray font-black uppercase tracking-widest">
+                  <p className="text-2xl font-black text-white font-mono leading-none">MZN {tx.amount?.toLocaleString()}</p>
+                  <div className="flex items-center gap-3 text-[10px] text-white/40 font-black uppercase tracking-widest">
                     <span className="flex items-center gap-1"><Wallet className="w-3 h-3 text-gold/50" /> {tx.method}</span>
                     <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-gold/50" /> {tx.createdAt?.toDate().toLocaleDateString()}</span>
                   </div>
@@ -1777,17 +2151,25 @@ const DepositManagerOverlay = () => {
 
                 <div className="text-right flex flex-col justify-between items-end h-full">
                   <div>
-                    <p className="text-[10px] font-black text-text-gray uppercase tracking-widest mb-1">Utilizador</p>
-                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-black/5">
+                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Utilizador</p>
+                    <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
                        <User className="w-3 h-3 text-gold" />
-                       <span className="text-[11px] font-black text-slate-900 font-mono">{tx.userId?.slice(-12)}</span>
+                       <span className="text-[11px] font-black text-white font-mono">{tx.userId?.slice(-12)}</span>
                     </div>
                   </div>
+                  {tx.proofUrl && (
+                    <button 
+                      onClick={() => setSelectedProof(tx.proofUrl)}
+                      className="mt-2 w-10 h-10 rounded-lg overflow-hidden border border-white/10 hover:border-gold/50 transition-all group/proof"
+                    >
+                      <img src={tx.proofUrl} alt="Proof" className="w-full h-full object-cover group-hover/proof:scale-110 transition-transform" />
+                    </button>
+                  )}
                 </div>
               </div>
 
               {tx.status === 'pending' && (
-                <div className="flex gap-2 pt-4 border-t border-black/5">
+                <div className="flex gap-2 pt-4 border-t border-white/5">
                   <button 
                     onClick={() => handleProcess(tx.id, tx.userId, tx.amount, 'completed')}
                     className="flex-1 bg-green-500 text-white py-4 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-green-500/20"
@@ -1837,17 +2219,17 @@ const EditProfileOverlay = ({ user }: { user: any }) => {
   return (
     <motion.div 
       initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }}
-      className="fixed inset-0 z-[2030] bg-slate-50 flex flex-col p-6"
+      className="fixed inset-0 z-[2030] bg-dark-bg flex flex-col p-6"
     >
       <div className="flex justify-between items-center mb-10">
-        <h2 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">EDITAR PERFIL</h2>
-        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-black/10 flex items-center justify-center text-slate-400">✕</button>
+        <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">EDITAR PERFIL</h2>
+        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
       </div>
 
       <div className="space-y-6">
         <div className="flex justify-center mb-8">
           <div className="w-24 h-24 rounded-full border-2 border-gold p-1 shadow-gold/20 shadow-lg">
-            <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
+            <div className="w-full h-full rounded-full bg-card-bg/40 flex items-center justify-center overflow-hidden">
               {photoURL ? (
                 <img src={photoURL} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (
@@ -1858,22 +2240,22 @@ const EditProfileOverlay = ({ user }: { user: any }) => {
         </div>
 
         <div className="space-y-2">
-          <label className="text-[10px] font-black text-text-gray uppercase tracking-widest pl-2">NOME DE EXIBIÇÃO</label>
+          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest pl-2">NOME DE EXIBIÇÃO</label>
           <input 
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Seu nome..."
-            className="w-full bg-white border border-black/5 rounded-2xl p-5 text-sm font-black text-slate-900 shadow-sm focus:outline-none focus:border-gold/30"
+            className="w-full bg-card-bg/40 border border-white/10 rounded-2xl p-5 text-sm font-black text-white shadow-sm focus:outline-none focus:border-gold/30"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-[10px] font-black text-text-gray uppercase tracking-widest pl-2">URL DA FOTO (OPCIONAL)</label>
+          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest pl-2">URL DA FOTO (OPCIONAL)</label>
           <input 
             value={photoURL}
             onChange={(e) => setPhotoURL(e.target.value)}
             placeholder="https://exemplo.com/foto.jpg"
-            className="w-full bg-white border border-black/5 rounded-2xl p-5 text-sm font-mono text-slate-900 shadow-sm focus:outline-none focus:border-gold/30"
+            className="w-full bg-card-bg/40 border border-white/10 rounded-2xl p-5 text-sm font-mono text-white shadow-sm focus:outline-none focus:border-gold/30"
           />
         </div>
 
@@ -1891,10 +2273,12 @@ const EditProfileOverlay = ({ user }: { user: any }) => {
 
 const AdminOverlay = () => {
   const { closeOverlay, openOverlay } = useOverlay();
-  const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'withdrawals' | 'stats' | 'promotions' | 'approvals' | 'settings' | 'financial' | 'vips'>('users');
+  const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'withdrawals' | 'stats' | 'promotions' | 'approvals' | 'settings' | 'financial' | 'vips' | 'support'>('users');
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
   const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
+  const [supportChats, setSupportChats] = useState<any[]>([]);
+  const [selectedAdminThreadId, setSelectedAdminThreadId] = useState<string | null>(null);
   const [appSettings, setAppSettings] = useState<any>({ 
     maintenance: false, 
     bannerText: '', 
@@ -1935,6 +2319,28 @@ const AdminOverlay = () => {
         setLoading(false);
       }, (err) => {
         handleFirestoreError(err, OperationType.LIST, 'admin/approvals');
+        setLoading(false);
+      });
+    } else if (activeAdminTab === 'support') {
+      unsubscribe = onSnapshot(query(collection(db, 'support_messages'), orderBy('createdAt', 'desc')), (snap) => {
+        const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Group by userId to get active threads
+        const threadsMap = new Map();
+        msgs.forEach((m: any) => {
+          if (!threadsMap.has(m.userId)) {
+            threadsMap.set(m.userId, { 
+              userId: m.userId, 
+              lastMessage: m.text, 
+              lastUpdate: m.createdAt,
+              messages: [] 
+            });
+          }
+          threadsMap.get(m.userId).messages.unshift(m);
+        });
+        setSupportChats(Array.from(threadsMap.values()));
+        setLoading(false);
+      }, (err) => {
+        handleFirestoreError(err, OperationType.LIST, 'admin/support');
         setLoading(false);
       });
     } else if (activeAdminTab === 'settings' || activeAdminTab === 'promotions' || activeAdminTab === 'financial' || activeAdminTab === 'vips') {
@@ -2030,52 +2436,75 @@ const AdminOverlay = () => {
   return (
     <motion.div 
       initial={{ opacity: 0, x: '100%' }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: '100%' }}
-      className="fixed inset-0 z-[2030] bg-slate-50 flex flex-col overflow-hidden"
+      className="fixed inset-0 z-[2030] bg-dark-bg flex flex-col overflow-hidden"
     >
-      <div className="p-6 pb-2 bg-white border-b border-black/5">
+      <div className="p-6 pb-2 bg-card-bg/40 border-b border-white/5">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
              <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center text-gold border border-gold/20">
                <ShieldCheck className="w-5 h-5" />
              </div>
-             <h2 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Painel Admin</h2>
+             <h2 className="text-xl font-black text-white uppercase tracking-tighter">Painel Admin</h2>
           </div>
-          <button onClick={closeOverlay} className="w-10 h-10 rounded-full border border-black/10 flex items-center justify-center text-slate-400">✕</button>
+          <button onClick={closeOverlay} className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
         </div>
 
-        <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl mb-4 overflow-x-auto no-scrollbar">
+        <div className="flex gap-2 p-1.5 bg-card-bg/60 rounded-2xl mb-4 overflow-x-auto no-scrollbar border border-white/5 shadow-inner">
            {[
              { id: 'users', label: 'Utilizadores', icon: Users },
              { id: 'withdrawals', label: 'Levantamentos', icon: Wallet },
              { id: 'approvals', label: 'Aprovações', icon: CheckCircle2 },
+             { id: 'support', label: 'Suporte', icon: Headphones },
              { id: 'financial', label: 'Finanças', icon: DollarSign },
              { id: 'vips', label: 'VIPs', icon: ShieldCheck },
              { id: 'promotions', label: 'Banner', icon: MessageSquare },
              { id: 'settings', label: 'Painel', icon: Settings },
              { id: 'stats', label: 'Estatísticas', icon: TrendingUp }
-           ].map(tab => (
-             <button 
-               key={tab.id}
-               onClick={() => setActiveAdminTab(tab.id as any)}
-               className={`flex-none px-4 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeAdminTab === tab.id ? 'bg-gold text-white shadow-lg shadow-gold/20' : 'text-text-gray hover:bg-black/5'}`}
-             >
-               <tab.icon className="w-3 h-3" />
-               {tab.label}
-             </button>
-           ))}
+           ].map(tab => {
+             const isActive = activeAdminTab === tab.id;
+             return (
+               <button 
+                 key={tab.id}
+                 onClick={() => setActiveAdminTab(tab.id as any)}
+                 className={`flex-none px-5 py-3.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all relative group flex items-center gap-2.5 overflow-hidden ${
+                   isActive 
+                     ? 'text-white' 
+                     : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+                 }`}
+               >
+                 {isActive && (
+                   <motion.div 
+                     layoutId="admin-active-tab"
+                     className="absolute inset-0 bg-gold shadow-[0_0_20px_rgba(212,175,55,0.3)] z-0"
+                     transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                   />
+                 )}
+                 <tab.icon className={`w-4 h-4 relative z-10 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-105 opacity-60'}`} />
+                 <span className="relative z-10">{tab.label}</span>
+               </button>
+             );
+           })}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {activeAdminTab === 'users' && (
-          <div className="space-y-6">
+      <div className="flex-1 overflow-y-auto p-6">
+        <AnimatePresence mode="wait">
+          {activeAdminTab === 'users' && (
+            <motion.div 
+              key="users"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-6"
+            >
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-gray" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
               <input 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="PROCURAR POR TELEFONE OU NOME..."
-                className="w-full bg-white border border-black/5 rounded-2xl py-4 pl-12 pr-4 text-xs font-black text-slate-900 focus:outline-none focus:border-gold/30 uppercase tracking-widest shadow-sm"
+                className="w-full bg-card-bg/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-xs font-black text-white focus:outline-none focus:border-gold/30 uppercase tracking-widest shadow-sm"
               />
             </div>
 
@@ -2084,31 +2513,31 @@ const AdminOverlay = () => {
                  <RefreshCcw className="w-8 h-8 text-gold animate-spin" />
               </div>
             ) : filteredUsers.length === 0 ? (
-              <div className="text-center py-20 text-text-gray font-black uppercase tracking-widest opacity-50">Nenhum utilizador encontrado</div>
+              <div className="text-center py-20 text-white/40 font-black uppercase tracking-widest opacity-50">Nenhum utilizador encontrado</div>
             ) : (
               <div className="space-y-4">
                 {filteredUsers.map(u => (
-                  <div key={u.id} className="bg-white border border-black/5 p-6 rounded-[32px] space-y-4 shadow-sm">
+                  <div key={u.id} className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
                     <div className="flex justify-between items-start">
                        <div>
                          <div className="flex items-center gap-2 mb-1">
-                           <h3 className="font-black text-slate-900 uppercase tracking-tight">{u.name || 'SEM NOME'}</h3>
+                           <h3 className="font-black text-white uppercase tracking-tight">{u.name || 'SEM NOME'}</h3>
                            {u.activeVip > 0 && (
                              <span className="bg-gold/10 border border-gold/20 text-gold text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">
-                               VIP {u.activeVip}
+                                VIP {u.activeVip}
                              </span>
                            )}
                          </div>
-                         <p className="text-[10px] text-text-gray font-mono">+{u.phone}</p>
+                         <p className="text-[10px] text-white/40 font-mono">+{u.phone}</p>
                        </div>
                        <div className="text-right">
-                         <p className="text-[10px] font-black text-gold uppercase tracking-widest leading-none">Saldo Atual</p>
-                         <p className="text-xl font-black text-slate-900 font-mono">MZN {u.balance?.toLocaleString()}</p>
+                         <p className="text-[10px] font-black text-gold uppercase tracking-widest">Saldo Atual</p>
+                         <p className="text-xl font-black text-white font-mono">MZN {u.balance?.toLocaleString()}</p>
                        </div>
                     </div>
                     
-                    <div className="flex gap-2 pt-2 border-t border-black/5">
-                       <div className="flex-1 bg-gold/10 hover:bg-gold/20 text-gold py-3 rounded-xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest border border-gold/10 transition-all relative group">
+                    <div className="flex gap-2 pt-2 border-t border-white/5">
+                       <div className="flex-1 bg-card-bg/40 hover:bg-card-bg/60 text-gold py-3 rounded-xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest border border-white/10 transition-all relative group">
                          <Shield className="w-3 h-3" /> 
                          <select 
                            value={u.activeVip || 0}
@@ -2119,12 +2548,12 @@ const AdminOverlay = () => {
                            }}
                            className="bg-transparent border-none outline-none cursor-pointer font-black"
                          >
-                           <option value={0} className="bg-white text-slate-900">VIP 0 (START)</option>
-                           <option value={1} className="bg-white text-slate-900">VIP 1 (PREMIUM)</option>
-                           <option value={2} className="bg-white text-slate-900">VIP 2 (LUXURY)</option>
-                           <option value={3} className="bg-white text-slate-900">VIP 3 (ELITE)</option>
-                           <option value={4} className="bg-white text-slate-900">VIP 4 (ATIVO)</option>
-                           <option value={5} className="bg-white text-slate-900">VIP 5 (GOLDEN)</option>
+                           <option value={0} className="bg-slate-900 text-white">VIP 0 (START)</option>
+                           <option value={1} className="bg-slate-900 text-white">VIP 1 (PREMIUM)</option>
+                           <option value={2} className="bg-slate-900 text-white">VIP 2 (LUXURY)</option>
+                           <option value={3} className="bg-slate-900 text-white">VIP 3 (ELITE)</option>
+                           <option value={4} className="bg-slate-900 text-white">VIP 4 (ATIVO)</option>
+                           <option value={5} className="bg-slate-900 text-white">VIP 5 (GOLDEN)</option>
                          </select>
                        </div>
                        <button 
@@ -2150,33 +2579,40 @@ const AdminOverlay = () => {
                 ))}
               </div>
             )}
-          </div>
+          </motion.div>
         )}
 
         {activeAdminTab === 'withdrawals' && (
-          <div className="space-y-4">
+          <motion.div 
+            key="withdrawals"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-4"
+          >
             {loading ? (
               <div className="flex justify-center py-20">
                  <RefreshCcw className="w-8 h-8 text-gold animate-spin" />
               </div>
             ) : pendingWithdrawals.length === 0 ? (
-              <div className="text-center py-20 text-text-gray font-black uppercase tracking-widest opacity-50">Nenhum levantamento pendente</div>
+              <div className="text-center py-20 text-white/40 font-black uppercase tracking-widest opacity-50">Nenhum levantamento pendente</div>
             ) : (
               pendingWithdrawals.map(tx => (
-                <div key={tx.id} className="bg-white border border-black/5 p-6 rounded-[32px] space-y-4 shadow-sm">
+                <div key={tx.id} className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
                   <div className="flex justify-between items-start">
                     <div>
-                      <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full mb-1 inline-block">PENDENTE</span>
-                      <p className="text-lg font-black text-slate-900 font-mono">MZN {tx.amount?.toLocaleString()}</p>
-                      <p className="text-[10px] text-text-gray font-bold uppercase tracking-widest">{tx.method || 'M-Pesa'}</p>
+                      <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full mb-1 inline-block">PENDENTE</span>
+                      <p className="text-lg font-black text-white font-mono">MZN {tx.amount?.toLocaleString()}</p>
+                      <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{tx.method || 'M-Pesa'}</p>
                     </div>
                     <div className="text-right">
-                       <p className="text-[10px] font-black text-text-gray uppercase tracking-widest">Utilizador</p>
-                       <p className="text-[11px] font-black text-slate-900">ID: {tx.userId?.slice(-6)}</p>
+                       <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Utilizador</p>
+                       <p className="text-[11px] font-black text-white">ID: {tx.userId?.slice(-6)}</p>
                     </div>
                   </div>
                   
-                  <div className="flex gap-2 pt-2 border-t border-black/5">
+                  <div className="flex gap-2 pt-2 border-t border-white/5">
                     <button 
                       onClick={() => handleProcessWithdrawal(tx.id, tx.userId, tx.amount, 'completed')}
                       className="flex-1 bg-green-500 text-white py-4 rounded-2xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest shadow-lg shadow-green-500/20"
@@ -2193,41 +2629,159 @@ const AdminOverlay = () => {
                 </div>
               ))
             )}
-          </div>
+          </motion.div>
+        )}
+
+        {activeAdminTab === 'support' && (
+          <motion.div 
+            key="support"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+            {!selectedAdminThreadId ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-black text-white uppercase tracking-widest">Conversas Ativas</h3>
+                  <div className="bg-gold/10 px-3 py-1 rounded-full border border-gold/20">
+                    <span className="text-[10px] font-black text-gold">{supportChats.length} CHATS</span>
+                  </div>
+                </div>
+                {supportChats.length === 0 ? (
+                   <div className="bg-card-bg/40 border border-white/5 p-12 rounded-[40px] text-center space-y-4">
+                     <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center text-white/10 mx-auto">
+                        <MessageSquare className="w-8 h-8" />
+                     </div>
+                     <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Nenhuma conversa ativa</p>
+                   </div>
+                ) : (
+                  supportChats.map(thread => (
+                    <button 
+                      key={thread.userId}
+                      onClick={() => setSelectedAdminThreadId(thread.userId)}
+                      className="w-full bg-card-bg/40 border border-white/5 p-6 rounded-[32px] flex items-center justify-between hover:bg-card-bg/60 transition-all text-left group shadow-sm"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gold/10 rounded-2xl flex items-center justify-center text-gold border border-gold/20 font-black text-xs uppercase">
+                          {thread.userId.slice(-2)}
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-white uppercase tracking-tight">Utilizador {thread.userId.slice(-6)}</p>
+                          <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest truncate max-w-[150px]">{thread.lastMessage}</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-gold transition-colors" />
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col h-[600px] bg-[#020508] rounded-[40px] border border-white/5 overflow-hidden shadow-2xl">
+                <div className="p-6 border-b border-white/5 flex justify-between items-center bg-card-bg/40">
+                  <div className="flex items-center gap-4">
+                    <button onClick={() => setSelectedAdminThreadId(null)} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40 hover:text-white">
+                      <ChevronRight className="w-5 h-5 rotate-180" />
+                    </button>
+                    <div>
+                      <h3 className="font-black text-white uppercase text-sm tracking-tight">Utilizador {selectedAdminThreadId.slice(-6)}</h3>
+                      <p className="text-[8px] text-green-500 font-bold uppercase tracking-widest">Sessão Ativa</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-card-bg/20">
+                  {supportChats.find(t => t.userId === selectedAdminThreadId)?.messages.map((m: any, i: number) => (
+                    <div key={m.id || i} className={`flex ${m.role === 'agent' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] p-4 rounded-3xl text-xs font-medium leading-relaxed ${
+                        m.role === 'agent' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-card-bg border border-white/10 text-white/90 rounded-tl-none shadow-sm'
+                      }`}>
+                        {m.text}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-4 bg-card-bg/60 border-t border-white/5">
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      placeholder="Responda ao utilizador..."
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                          const text = (e.target as HTMLInputElement).value;
+                          if (!text.trim()) return;
+                          (e.target as HTMLInputElement).value = '';
+                          try {
+                            await addDoc(collection(db, 'support_messages'), {
+                              userId: selectedAdminThreadId,
+                              senderId: auth.currentUser?.uid,
+                              role: 'agent',
+                              text: text.trim(),
+                              createdAt: serverTimestamp()
+                            });
+                          } catch (err) {
+                            handleFirestoreError(err, OperationType.WRITE, 'admin/support/reply');
+                          }
+                        }
+                      }}
+                      className="w-full bg-black/40 border border-white/10 rounded-2xl py-5 pl-6 pr-6 text-xs text-white outline-none focus:border-gold/50"
+                    />
+                  </div>
+                  <p className="text-[8px] text-white/20 font-black uppercase tracking-widest mt-3 text-center">Pressione ENTER para enviar a resposta</p>
+                </div>
+              </div>
+            )}
+          </motion.div>
         )}
 
         {activeAdminTab === 'stats' && (
-           <div className="space-y-6">
+          <motion.div 
+            key="stats"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
               <div className="grid grid-cols-2 gap-4">
-                 <div className="bg-white border border-black/5 p-6 rounded-[32px] space-y-1 shadow-sm">
-                    <p className="text-[10px] font-black text-text-gray uppercase tracking-widest">Total Utilizadores</p>
-                    <p className="text-2xl font-black text-slate-900 font-mono">{allUsers.length}</p>
+                 <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-1 shadow-sm">
+                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Total Utilizadores</p>
+                    <p className="text-2xl font-black text-white font-mono">{allUsers.length}</p>
                  </div>
-                 <div className="bg-white border border-black/5 p-6 rounded-[32px] space-y-1 shadow-sm">
-                    <p className="text-[10px] font-black text-text-gray uppercase tracking-widest">Saldo em Custódia</p>
+                 <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-1 shadow-sm">
+                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Saldo em Custódia</p>
                     <p className="text-2xl font-black text-gold font-mono">MZN {allUsers.reduce((acc, u) => acc + (u.balance || 0), 0).toLocaleString()}</p>
                  </div>
               </div>
 
-              <div className="bg-indigo-50 border border-indigo-100 p-8 rounded-[40px] text-center space-y-2 shadow-sm">
+              <div className="bg-indigo-500/10 border border-indigo-500/20 p-8 rounded-[40px] text-center space-y-2 shadow-sm">
                  <LayoutDashboard className="w-8 h-8 text-indigo-500 mx-auto" />
-                 <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Administração MOZA</h4>
-                 <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest leading-relaxed">
+                 <h4 className="text-lg font-black text-white uppercase tracking-tighter">Administração MOZA</h4>
+                 <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest leading-relaxed">
                    Gerencie a plataforma com responsabilidade. Todas as ações do administrador são registadas no sistema.
                  </p>
               </div>
-           </div>
+            </motion.div>
         )}
 
         {activeAdminTab === 'approvals' && (
-          <div className="space-y-6">
-            <div className="bg-gold/5 border border-gold/10 p-8 rounded-[40px] text-center space-y-4 shadow-sm">
+          <motion.div 
+            key="approvals"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+            <div className="bg-card-bg/40 border border-white/10 p-8 rounded-[40px] text-center space-y-4 shadow-sm">
               <div className="w-16 h-16 bg-gold rounded-full flex items-center justify-center text-white mx-auto shadow-xl shadow-gold/20">
                 <DollarSign className="w-8 h-8" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Gestor de Depósitos</h3>
-                <p className="text-[10px] text-text-gray font-black uppercase tracking-widest leading-relaxed">
+                <h3 className="text-xl font-black text-white uppercase tracking-tighter">Gestor de Depósitos</h3>
+                <p className="text-[10px] text-white/40 font-black uppercase tracking-widest leading-relaxed">
                    Sistema avançado de auditoria com filtros, busca e histórico detalhado de transações M-Pesa e e-Mola.
                 </p>
               </div>
@@ -2239,22 +2793,22 @@ const AdminOverlay = () => {
               </button>
             </div>
 
-            <div className="space-y-4 pt-4 border-t border-black/5">
-              <p className="text-[10px] font-black text-text-gray uppercase tracking-widest text-center opacity-40">Ações Rápidas Pendentes</p>
+            <div className="space-y-4 pt-4 border-t border-white/5">
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest text-center opacity-40">Ações Rápidas Pendentes</p>
               {loading ? (
                 <div className="flex justify-center py-10"><RefreshCcw className="w-6 h-6 text-gold animate-spin" /></div>
               ) : pendingDeposits.length === 0 ? (
-                <p className="text-center py-10 text-[9px] font-black text-text-gray/50 uppercase tracking-widest">Tudo em dia!</p>
+                <p className="text-center py-10 text-[9px] font-black text-white/50 uppercase tracking-widest">Tudo em dia!</p>
               ) : (
                 pendingDeposits.slice(0, 3).map(tx => (
-                  <div key={tx.id} className="bg-white border border-black/5 p-4 rounded-2xl flex justify-between items-center shadow-sm">
+                  <div key={tx.id} className="bg-card-bg/40 border border-white/5 p-4 rounded-2xl flex justify-between items-center shadow-sm">
                     <div>
-                      <p className="text-xs font-black text-slate-900 font-mono">MZN {tx.amount?.toLocaleString()}</p>
-                      <p className="text-[8px] text-text-gray font-black uppercase tracking-widest">ID: {tx.userId?.slice(-6)}</p>
+                      <p className="text-xs font-black text-white font-mono">MZN {tx.amount?.toLocaleString()}</p>
+                      <p className="text-[8px] text-white/40 font-black uppercase tracking-widest">ID: {tx.userId?.slice(-6)}</p>
                     </div>
                     <button 
                       onClick={() => openOverlay('deposit_manager')}
-                      className="bg-slate-50 text-gold px-4 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest border border-gold/20 hover:bg-gold/5 transition-all"
+                      className="bg-card-bg/40 text-gold px-4 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest border border-gold/20 hover:bg-gold/5 transition-all"
                     >
                       GERIR
                     </button>
@@ -2262,87 +2816,94 @@ const AdminOverlay = () => {
                 ))
               )}
             </div>
-          </div>
+          </motion.div>
         )}
 
         {activeAdminTab === 'financial' && (
-          <div className="space-y-6">
-            <div className="bg-white border border-black/5 p-6 rounded-[32px] space-y-6 shadow-sm">
-              <div className="flex items-center gap-3 border-b border-black/5 pb-4">
+          <motion.div 
+            key="financial"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+            <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-6 shadow-sm">
+              <div className="flex items-center gap-3 border-b border-white/5 pb-4">
                 <div className="w-8 h-8 rounded-lg bg-[#e61c2b]/10 flex items-center justify-center text-[#e61c2b]">
                   <Phone className="w-4 h-4" />
                 </div>
-                <h3 className="font-black text-slate-900 uppercase tracking-tight">M-Pesa</h3>
+                <h3 className="font-black text-white uppercase tracking-tight">M-Pesa</h3>
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-text-gray uppercase tracking-widest">Número</label>
+                  <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Número</label>
                   <input 
                     value={appSettings.mpesaNumber || ''} 
                     onChange={(e) => setAppSettings({ ...appSettings, mpesaNumber: e.target.value })}
-                    className="w-full bg-slate-50 border border-black/5 rounded-xl p-4 text-xs font-mono text-slate-900 focus:outline-none focus:border-gold/30"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-mono text-white focus:outline-none focus:border-gold/30"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-text-gray uppercase tracking-widest">Titular</label>
+                  <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Titular</label>
                   <input 
                     value={appSettings.mpesaHolder || ''} 
                     onChange={(e) => setAppSettings({ ...appSettings, mpesaHolder: e.target.value })}
-                    className="w-full bg-slate-50 border border-black/5 rounded-xl p-4 text-xs text-slate-900 uppercase font-black"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs text-white uppercase font-black"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white border border-black/5 p-6 rounded-[32px] space-y-6 shadow-sm">
-              <div className="flex items-center gap-3 border-b border-black/5 pb-4">
+            <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-6 shadow-sm">
+              <div className="flex items-center gap-3 border-b border-white/5 pb-4">
                 <div className="w-8 h-8 rounded-lg bg-[#ff6600]/10 flex items-center justify-center text-[#ff6600]">
                   <Phone className="w-4 h-4" />
                 </div>
-                <h3 className="font-black text-slate-900 uppercase tracking-tight">e-Mola</h3>
+                <h3 className="font-black text-white uppercase tracking-tight">e-Mola</h3>
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-text-gray uppercase tracking-widest">Número</label>
+                  <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Número</label>
                   <input 
                     value={appSettings.emolaNumber || ''} 
                     onChange={(e) => setAppSettings({ ...appSettings, emolaNumber: e.target.value })}
-                    className="w-full bg-slate-50 border border-black/5 rounded-xl p-4 text-xs font-mono text-slate-900 focus:outline-none focus:border-gold/30"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-mono text-white focus:outline-none focus:border-gold/30"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-text-gray uppercase tracking-widest">Titular</label>
+                  <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Titular</label>
                   <input 
                     value={appSettings.emolaHolder || ''} 
                     onChange={(e) => setAppSettings({ ...appSettings, emolaHolder: e.target.value })}
-                    className="w-full bg-slate-50 border border-black/5 rounded-xl p-4 text-xs text-slate-900 uppercase font-black"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs text-white uppercase font-black"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white border border-black/5 p-6 rounded-[32px] space-y-6 shadow-sm">
-              <div className="flex items-center gap-3 border-b border-black/5 pb-4">
+            <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-6 shadow-sm">
+              <div className="flex items-center gap-3 border-b border-white/5 pb-4">
                 <div className="w-8 h-8 rounded-lg bg-gold/10 flex items-center justify-center text-gold">
                   <Landmark className="w-4 h-4" />
                 </div>
-                <h3 className="font-black text-slate-900 uppercase tracking-tight">Banco</h3>
+                <h3 className="font-black text-white uppercase tracking-tight">Banco</h3>
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-text-gray uppercase tracking-widest">Número/NIB</label>
+                  <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Número/NIB</label>
                   <input 
                     value={appSettings.bankNumber || ''} 
                     onChange={(e) => setAppSettings({ ...appSettings, bankNumber: e.target.value })}
-                    className="w-full bg-slate-50 border border-black/5 rounded-xl p-4 text-xs font-mono text-slate-900 focus:outline-none focus:border-gold/30"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-mono text-white focus:outline-none focus:border-gold/30"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-text-gray uppercase tracking-widest">Titular</label>
+                  <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Titular</label>
                   <input 
                     value={appSettings.bankHolder || ''} 
                     onChange={(e) => setAppSettings({ ...appSettings, bankHolder: e.target.value })}
-                    className="w-full bg-slate-50 border border-black/5 rounded-xl p-4 text-xs text-slate-900 uppercase font-black"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs text-white uppercase font-black"
                   />
                 </div>
               </div>
@@ -2361,43 +2922,60 @@ const AdminOverlay = () => {
             >
               SALVAR NÚMEROS DE DEPÓSITO
             </button>
-          </div>
+          </motion.div>
         )}
 
         {activeAdminTab === 'vips' && (
-          <div className="space-y-6">
-            <div className="bg-white border border-black/5 p-6 rounded-[32px] space-y-4 shadow-sm">
-              <h3 className="font-black text-slate-900 uppercase tracking-tight">Gerir Níveis VIP</h3>
-              <p className="text-[10px] text-text-gray font-black uppercase tracking-widest leading-relaxed">
+          <motion.div 
+            key="vips"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+            <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
+              <h3 className="font-black text-white uppercase tracking-tight">Gerir Níveis VIP</h3>
+              <p className="text-[10px] text-white/40 font-black uppercase tracking-widest leading-relaxed">
                 Ajuste os valores de investimento e retornos diários.
               </p>
             </div>
             
             <div className="space-y-4">
               {VIP_LEVELS.map((level) => (
-                <div key={level.id} className="bg-white border border-black/5 p-6 rounded-[32px] space-y-4 shadow-sm">
-                  <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-black/5">
-                    <span className="text-sm font-black text-slate-900">{level.name} - {level.badge}</span>
-                    <ShieldCheck className="w-5 h-5 text-gold" />
+                <div key={level.id} className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
+                  <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-black text-white">{level.name} - {level.badge}</span>
+                      <span className={`text-[8px] font-black uppercase tracking-widest ${appSettings[`vip${level.id}_available`] ?? level.id <= 5 ? 'text-green-500' : 'text-red-500'}`}>
+                        {appSettings[`vip${level.id}_available`] ?? level.id <= 5 ? 'Disponível' : 'Indisponível'}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={() => handleUpdateSettings({ [`vip${level.id}_available`]: !(appSettings[`vip${level.id}_available`] ?? level.id <= 5) })}
+                      className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${appSettings[`vip${level.id}_available`] ?? level.id <= 5 ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}
+                    >
+                      {appSettings[`vip${level.id}_available`] ?? level.id <= 5 ? 'Desativar' : 'Ativar'}
+                    </button>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-text-gray uppercase tracking-widest">Investimento (MZN)</label>
+                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Investimento (MZN)</label>
                       <input 
                         type="number"
                         value={appSettings[`vip${level.id}_invest`] ?? level.investment}
                         onChange={(e) => handleUpdateSettings({ [`vip${level.id}_invest`]: Number(e.target.value) })}
-                        className="w-full bg-slate-50 border border-black/5 rounded-xl p-3 text-xs font-mono text-slate-900 focus:outline-none focus:border-gold/30"
+                        className="w-full bg-white/5 border border-white/5 rounded-xl p-3 text-xs font-mono text-white focus:outline-none focus:border-gold/30"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-text-gray uppercase tracking-widest">Retorno Diário (MZN)</label>
+                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Retorno Diário (MZN)</label>
                       <input 
                         type="number"
                         value={appSettings[`vip${level.id}_return`] ?? level.dailyReturn}
                         onChange={(e) => handleUpdateSettings({ [`vip${level.id}_return`]: Number(e.target.value) })}
-                        className="w-full bg-slate-50 border border-black/5 rounded-xl p-3 text-xs font-mono text-slate-900 focus:outline-none focus:border-gold/30"
+                        className="w-full bg-white/5 border border-white/5 rounded-xl p-3 text-xs font-mono text-white focus:outline-none focus:border-gold/30"
                       />
                     </div>
                   </div>
@@ -2408,29 +2986,36 @@ const AdminOverlay = () => {
             <div className="bg-gold/5 border border-gold/10 p-6 rounded-3xl text-[10px] font-bold text-gold uppercase text-center">
               As alterações nos VIPs refletem-se automaticamente para todos os utilizadores ao recarregar a app.
             </div>
-          </div>
+          </motion.div>
         )}
 
         {activeAdminTab === 'promotions' && (
-          <div className="space-y-6">
-            <div className="bg-white border border-black/5 p-6 rounded-[32px] space-y-4 shadow-sm">
-              <h3 className="font-black text-slate-900 uppercase tracking-tight">Customizar Banner Home</h3>
+          <motion.div 
+            key="promotions"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+            <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
+              <h3 className="font-black text-white uppercase tracking-tight">Customizar Banner Home</h3>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-text-gray uppercase">Título Principal</label>
+                <label className="text-[10px] font-black text-white/40 uppercase">Título Principal</label>
                 <input 
                   value={appSettings.bannerText || ''} 
                   onChange={(e) => setAppSettings({ ...appSettings, bannerText: e.target.value })}
                   placeholder="EX: INVISTA AGORA..."
-                  className="w-full bg-slate-50 border border-black/5 rounded-xl p-4 text-xs text-slate-900 focus:outline-none focus:border-gold/30"
+                  className="w-full bg-white/5 border border-white/5 rounded-xl p-4 text-xs text-white focus:outline-none focus:border-gold/30"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-text-gray uppercase">Texto Destaque (Dourado)</label>
+                <label className="text-[10px] font-black text-white/40 uppercase">Texto Destaque (Dourado)</label>
                 <input 
                   value={appSettings.bannerHighlight || ''} 
                   onChange={(e) => setAppSettings({ ...appSettings, bannerHighlight: e.target.value })}
                   placeholder="EX: 100% SEGURO..."
-                  className="w-full bg-slate-50 border border-black/5 rounded-xl p-4 text-xs text-slate-900 focus:outline-none focus:border-gold/30"
+                  className="w-full bg-white/5 border border-white/5 rounded-xl p-4 text-xs text-white focus:outline-none focus:border-gold/30"
                 />
               </div>
               <button 
@@ -2440,36 +3025,44 @@ const AdminOverlay = () => {
                 SALVAR ALTERAÇÕES
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {activeAdminTab === 'settings' && (
-          <div className="space-y-6">
-             <div className="bg-white border border-black/5 p-6 rounded-[32px] space-y-4 shadow-sm">
+          <motion.div 
+            key="settings"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+             <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
                <div className="flex items-center justify-between">
                  <div>
-                   <h3 className="font-black text-slate-900 uppercase tracking-tight">Modo Manutenção</h3>
-                   <p className="text-[9px] text-text-gray font-bold uppercase tracking-widest">FECHA O APP PARA TODOS UTILIZADORES</p>
+                   <h3 className="font-black text-white uppercase tracking-tight">Modo Manutenção</h3>
+                   <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest">FECHA O APP PARA TODOS UTILIZADORES</p>
                  </div>
                  <button 
                   onClick={() => handleUpdateSettings({ maintenance: !appSettings.maintenance })}
-                  className={`w-14 h-8 rounded-full relative transition-all ${appSettings.maintenance ? 'bg-red-500 shadow-lg shadow-red-500/20' : 'bg-slate-200'}`}
+                  className={`w-14 h-8 rounded-full relative transition-all ${appSettings.maintenance ? 'bg-red-500 shadow-lg shadow-red-500/20' : 'bg-card-bg/60'}`}
                  >
                    <div className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-all shadow-sm ${appSettings.maintenance ? 'right-1' : 'left-1'}`} />
                  </button>
                </div>
              </div>
 
-             <div className="bg-yellow-50 border border-yellow-100 p-6 rounded-[32px] flex gap-4 shadow-sm">
+             <div className="bg-yellow-500/10 border border-yellow-500/20 p-6 rounded-[32px] flex gap-4 shadow-sm">
                 <AlertCircle className="w-6 h-6 text-yellow-500 shrink-0" />
-                <p className="text-[10px] text-yellow-700 font-bold uppercase tracking-widest leading-relaxed">
+                <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-widest leading-relaxed">
                    Ao ativar a manutenção, os utilizadores não poderão acessar as suas contas. Use apenas para atualizações críticas.
                 </p>
              </div>
-          </div>
+          </motion.div>
         )}
-      </div>
-    </motion.div>
+      </AnimatePresence>
+    </div>
+  </motion.div>
   );
 };
 
@@ -2485,6 +3078,8 @@ export default function App() {
   const [balance, setBalance] = useState(0);
   const [activeVip, setActiveVip] = useState(0);
   const [loanBalance, setLoanBalance] = useState(0);
+  const [dailyTotal, setDailyTotal] = useState(0);
+  const [lastTaskDate, setLastTaskDate] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [language, setLanguage] = useState(() => localStorage.getItem('app_lang') || 'pt');
 
@@ -2506,7 +3101,7 @@ export default function App() {
     inviteCode: inviteCode || '',
     loanBalance: loanBalance
   }), [firebaseUser, userName, userPhone, photoURL, balance, activeVip, inviteCode, loanBalance]);
-
+  
   // Global Settings and Dynamic VIPs
   const [appSettings, setAppSettings] = useState<any>({ 
     maintenance: false, 
@@ -2521,12 +3116,24 @@ export default function App() {
   });
 
   const effectiveVipLevels = useMemo(() => {
-    return VIP_LEVELS.map(level => ({
-      ...level,
-      investment: appSettings[`vip${level.id}_invest`] ?? level.investment,
-      dailyReturn: appSettings[`vip${level.id}_return`] ?? level.dailyReturn,
-    }));
+    return VIP_LEVELS.map(level => {
+      const defaultAvailable = level.id <= 5;
+      return {
+        ...level,
+        investment: appSettings[`vip${level.id}_invest`] ?? level.investment,
+        dailyReturn: appSettings[`vip${level.id}_return`] ?? level.dailyReturn,
+        available: appSettings[`vip${level.id}_available`] ?? defaultAvailable,
+      };
+    });
   }, [appSettings]);
+
+  const isLimitReachedToday = useMemo(() => {
+    const today = new Date().toDateString();
+    if (lastTaskDate !== today) return false;
+    const currentVip = effectiveVipLevels.find(v => v.id === activeVip);
+    const limit = currentVip?.dailyReturn || 0;
+    return limit > 0 && dailyTotal >= limit;
+  }, [dailyTotal, lastTaskDate, activeVip, effectiveVipLevels]);
 
   // Global Settings Listener
   useEffect(() => {
@@ -2534,6 +3141,8 @@ export default function App() {
       if (doc.exists()) {
         setAppSettings(prev => ({ ...prev, ...doc.data() }));
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'settings/global');
     });
     return () => unsub();
   }, []);
@@ -2592,6 +3201,8 @@ export default function App() {
         setBalance(data.balance || 0);
         setActiveVip(data.activeVip || 0);
         setLoanBalance(data.loanBalance || 0);
+        setDailyTotal(data.dailyTotal || 0);
+        setLastTaskDate(data.lastTaskDate || "");
         const rawPhone = data.phone || '';
         const normalizedDataPhone = rawPhone.replace(/\s+/g, '').replace(/[^\d]/g, '').slice(-9);
         const isTargetAdmin = normalizedDataPhone === '858778905';
@@ -2670,7 +3281,7 @@ export default function App() {
     if (!firebaseUser) return;
     
     const level = effectiveVipLevels.find(v => v.id === id);
-    if (!level) return;
+    if (!level || !level.available) return;
 
     if (balance < level.investment) {
       openOverlay('deposit', level.investment);
@@ -2710,7 +3321,7 @@ export default function App() {
     }
   };
 
-  const addTransactionAndNotify = async (type: Transaction['type'], amount: number, status: Transaction['status'], method?: string) => {
+  const addTransactionAndNotify = async (type: Transaction['type'], amount: number, status: Transaction['status'], method?: string, proofUrl?: string) => {
     if (!firebaseUser) return;
     
     try {
@@ -2720,7 +3331,8 @@ export default function App() {
         amount,
         status,
         date: new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase(),
-        method,
+        method: method || 'INTERNO',
+        proofUrl: proofUrl || '',
         createdAt: serverTimestamp()
       });
     } catch (error) {
@@ -2752,12 +3364,12 @@ export default function App() {
         return;
       }
 
+      const effectiveReward = reward || (currentVip?.dailyReturn || 0);
+
       if (limit > 0 && (dailyTotal + effectiveReward) > limit) {
         alert(t('limit_reached'));
         return;
       }
-
-      const effectiveReward = reward || (currentVip?.dailyReturn || 0);
       
       await updateDoc(userRef, {
         balance: increment(effectiveReward),
@@ -2766,16 +3378,17 @@ export default function App() {
         updatedAt: serverTimestamp()
       });
       await addTransactionAndNotify('reward', effectiveReward, 'completed');
+      alert(`Missão concluída! Recebeu MZN ${effectiveReward.toLocaleString()}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'tasks');
     }
   };
 
-  const handleDeposit = async (amount: number, method: string) => {
+  const handleDeposit = async (amount: number, method: string, proofUrl?: string) => {
     if (!firebaseUser) return;
     
     try {
-      await addTransactionAndNotify('deposit', amount, 'pending', method);
+      await addTransactionAndNotify('deposit', amount, 'pending', method, proofUrl);
       alert("Depósito solicitado! Por favor, aguarde a aprovação do administrador.");
       closeOverlay();
     } catch (error) {
@@ -2868,11 +3481,11 @@ export default function App() {
         </div>
         <div className="space-y-2">
           <h1 className="text-2xl font-black text-white uppercase tracking-tighter">Sistema em Manutenção</h1>
-          <p className="text-xs text-text-gray font-bold uppercase tracking-widest leading-relaxed max-w-xs mx-auto">
+          <p className="text-xs text-white/40 font-bold uppercase tracking-widest leading-relaxed max-w-xs mx-auto">
             Estamos atualizando os nossos servidores para lhe oferecer uma melhor experiência. Por favor, volte mais tarde.
           </p>
         </div>
-        <div className="bg-white/5 px-6 py-3 rounded-full border border-white/10">
+        <div className="bg-card-bg/40 px-6 py-3 rounded-full border border-white/10">
           <p className="text-[10px] font-black text-gold uppercase tracking-widest text-center">Previsão: 2 horas</p>
         </div>
       </div>
@@ -2881,7 +3494,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-bg-deep flex flex-col items-center justify-center p-6 text-center space-y-6">
+      <div className="min-h-screen bg-[#03060b] flex flex-col items-center justify-center p-6 text-center space-y-6">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -2896,7 +3509,7 @@ export default function App() {
           <p className="text-[10px] font-black text-gold uppercase tracking-[0.3em] animate-pulse">
             {isLoggedIn ? 'Sincronizando Conta' : 'Iniciando Sistema'}
           </p>
-          <p className="text-[8px] text-text-gray font-black uppercase tracking-widest opacity-40">MOZA PREMIUM SEGURO</p>
+          <p className="text-[8px] text-white/40 font-black uppercase tracking-widest opacity-60">MOZA PREMIUM SEGURO</p>
         </div>
       </div>
     );
@@ -2912,7 +3525,7 @@ export default function App() {
 
   return (
     <OverlayContext.Provider value={{ view: overlayState.view, data: overlayState.data, openOverlay, closeOverlay }}>
-      <div className="min-h-screen bg-bg-deep flex flex-col pb-32 text-white font-sans selection:bg-gold selection:text-black">
+      <div className="min-h-screen bg-[#03060b] flex flex-col pb-32 text-white font-sans selection:bg-gold/30">
         {/* Overlays */}
         <AnimatePresence>
           {overlayState.view === 'deposit' && <DepositOverlay onConfirm={handleDeposit} settings={appSettings} />}
@@ -2921,6 +3534,7 @@ export default function App() {
           {overlayState.view === 'records' && <RecordsOverlay transactions={transactions} />}
           {overlayState.view === 'support' && <SupportOverlay />}
           {overlayState.view === 'ai_helper' && <AiHelperOverlay />}
+          {overlayState.view === 'live_chat' && <LiveChatOverlay />}
           {overlayState.view === 'market' && <MarketOverlay />}
           {overlayState.view === 'about' && <AboutOverlay />}
           {overlayState.view === 'education' && <EducationOverlay />}
@@ -2931,12 +3545,17 @@ export default function App() {
         </AnimatePresence>
 
       {/* Modern Header */}
-      <header className="px-6 py-6 flex justify-between items-center bg-bg-deep/50 backdrop-blur-3xl sticky top-0 z-[100] border-b border-white/5">
-        <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setActiveTab('home')}>
-          <div className="w-10 h-10">
-            <Logo showText={false} className="scale-50 h-full w-full" />
+      <header className="px-6 py-5 flex justify-between items-center bg-[#010204]/80 backdrop-blur-2xl sticky top-0 z-[100] border-b border-white/5">
+        <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setActiveTab('home')}>
+          <div className="relative">
+            <div className="w-10 h-10 bg-gold/10 rounded-xl flex items-center justify-center border border-gold/20 shadow-[0_0_20px_rgba(16,185,129,0.1)] overflow-hidden">
+              <Logo showText={false} className="scale-[0.6]" />
+            </div>
           </div>
-          <h1 className="text-xl font-black tracking-widest leading-none">MOZA <span className="text-gold">INV</span></h1>
+          <div className="flex flex-col">
+            <h1 className="text-lg font-black tracking-tighter leading-tight text-white group-hover:text-gold transition-colors">MOZA<span className="text-gold">INV</span></h1>
+            <span className="text-[7px] font-bold uppercase tracking-[0.3em] text-white/30 -mt-0.5">Investment Hub</span>
+          </div>
         </div>
         
         <div className="flex items-center gap-2">
@@ -2946,16 +3565,16 @@ export default function App() {
               animate={{ scale: 1, opacity: 1 }}
               whileHover={{ scale: 1.05 }}
               onClick={() => openOverlay('admin')}
-              className="bg-red-500/20 border border-red-500/30 px-3 py-2 rounded-xl flex items-center gap-2 text-red-500 shadow-lg shadow-red-500/10"
+              className="bg-red-500/10 text-red-500 border border-red-500/20 px-3 py-2 rounded-xl flex items-center gap-2 shadow-sm"
             >
               <ShieldCheck className="w-4 h-4" />
               <span className="text-[10px] font-black uppercase tracking-widest">Admin</span>
             </motion.button>
           )}
-          <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
+          <div className="bg-card-bg/40 px-4 py-2 rounded-xl border border-white/5 flex items-center gap-2">
             <span className="text-[10px] font-black text-gold uppercase tracking-widest font-mono">ID: {userPhone.slice(-4) || '2026'}</span>
           </div>
-          <div onClick={handleLogout} className="w-10 h-10 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/50 hover:text-red-500 cursor-pointer">
+          <div onClick={handleLogout} className="w-10 h-10 bg-card-bg/40 border border-white/5 rounded-xl flex items-center justify-center text-white/40 hover:text-red-500 cursor-pointer transition-colors shadow-2xl">
              <LogOut className="w-4 h-4" />
           </div>
         </div>
@@ -2975,8 +3594,8 @@ export default function App() {
                  <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Olá, <span className="text-gold">{userName || 'Utilizador'}</span></h2>
                  <div className="flex items-center gap-2">
                     <p className="text-gold text-[10px] font-black tracking-widest font-mono">+{userPhone || 'Registando...'}</p>
-                    <span className="w-1 h-1 rounded-full bg-white/20" />
-                    <p className="text-text-gray text-[9px] font-black uppercase tracking-[0.5em] opacity-50">Investidor VIP MOZA</p>
+                    <span className="w-1 h-1 rounded-full bg-white/10" />
+                    <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.5em] opacity-50">Investidor VIP MOZA</p>
                  </div>
               </div>
 
@@ -2992,18 +3611,18 @@ export default function App() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   onClick={() => openOverlay('admin')}
-                  className="bg-red-500/10 border border-red-500/20 p-4 rounded-[32px] flex items-center justify-between cursor-pointer hover:bg-red-500/20 transition-all mx-4"
+                  className="bg-red-500/10 border border-red-500/20 p-4 rounded-[32px] flex items-center justify-between cursor-pointer hover:bg-red-500/20 transition-all mx-4 shadow-sm"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-red-500 flex items-center justify-center text-white shadow-lg shadow-red-500/10">
+                    <div className="w-10 h-10 rounded-2xl bg-red-500 flex items-center justify-center text-white shadow-lg shadow-red-500/20">
                       <ShieldCheck className="w-5 h-5" />
                     </div>
                     <div>
                       <p className="text-white font-black text-xs uppercase tracking-tighter">Painel de Controlo</p>
-                      <p className="text-[9px] text-red-500/60 font-black uppercase tracking-widest">Painel Administrativo Moza</p>
+                      <p className="text-[9px] text-red-500 font-black uppercase tracking-widest">Painel Administrativo Moza</p>
                     </div>
                   </div>
-                  <div className="bg-red-500/20 text-red-500 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border border-red-500/20">
+                  <div className="bg-red-500/20 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border border-red-500/30 shadow-sm">
                     ACESSAR
                   </div>
                 </motion.div>
@@ -3012,7 +3631,7 @@ export default function App() {
               {/* Refined Premium Asset Card */}
               <div className="relative group">
                 <div className="absolute inset-0 bg-gold/10 blur-[100px] rounded-full opacity-30 animate-pulse" />
-                <div className="bg-card-bg rounded-[48px] p-9 border border-black/5 relative overflow-hidden shadow-xl">
+                <div className="bg-card-bg/40 backdrop-blur-3xl rounded-[48px] p-9 border border-white/5 relative overflow-hidden shadow-2xl">
                   <div className="absolute top-0 right-0 p-10 opacity-[0.08] translate-x-12 translate-y-[-16px] transform -rotate-12 group-hover:scale-110 transition-transform duration-1000">
                     <Logo showText={false} className="scale-[4]" />
                   </div>
@@ -3020,11 +3639,11 @@ export default function App() {
                   <div className="relative z-10 flex flex-col gap-8">
                     <div className="flex justify-between items-start">
                       <div className="space-y-3">
-                        <div className="flex items-center gap-2 px-3 py-1 bg-black/5 border border-black/5 rounded-full w-fit backdrop-blur-xl">
-                          <span className="text-[9.5px] font-black text-text-gray uppercase tracking-[0.3em]">Capital Disponível</span>
+                        <div className="flex items-center gap-2 px-3 py-1 bg-card-bg/40 border border-white/5 rounded-full w-fit">
+                          <span className="text-[9.5px] font-black text-white/50 uppercase tracking-[0.3em]">Capital Disponível</span>
                         </div>
                         <div className="space-y-1">
-                          <div className="text-4xl font-black text-slate-900 tracking-tighter leading-none font-mono flex items-baseline gap-2">
+                          <div className="text-4xl font-black text-white tracking-tighter leading-none font-mono flex items-baseline gap-2">
                              {balance.toLocaleString()}
                              <span className="text-lg text-gold font-sans font-black">MZN</span>
                           </div>
@@ -3032,7 +3651,7 @@ export default function App() {
                       </div>
                       <motion.div 
                         whileHover={{ scale: 1.05 }}
-                        className="bg-gold/10 p-5 rounded-[32px] border border-gold/20 flex flex-col items-center gap-1 shadow-lg shadow-gold/5"
+                        className="bg-gold/5 p-5 rounded-[32px] border border-gold/10 flex flex-col items-center gap-1 shadow-gold-glow"
                       >
                          <Star className="w-5 h-5 text-gold mb-1" />
                          <span className="text-[9px] font-black text-gold uppercase tracking-widest leading-none">NÍVEL</span>
@@ -3045,9 +3664,8 @@ export default function App() {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => openOverlay('deposit')}
-                        className="gold-gradient p-4 rounded-[26px] text-white font-black uppercase tracking-[0.2em] text-[10px] shadow-xl flex items-center justify-center gap-3 group/btn relative overflow-hidden"
+                        className="gold-gradient p-4 rounded-[26px] text-white font-black uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-gold/20 flex items-center justify-center gap-3 group/btn relative overflow-hidden"
                       >
-                        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
                         <ArrowUpRight className="w-4 h-4" />
                         <span className="relative z-10">RECARREGAR</span>
                       </motion.button>
@@ -3055,9 +3673,8 @@ export default function App() {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => openOverlay('withdraw')}
-                        className="bg-slate-100 backdrop-blur-xl border border-black/5 p-4 rounded-[26px] text-slate-900 font-black uppercase tracking-[0.2em] text-[10px] shadow-md flex items-center justify-center gap-3 group/btn relative overflow-hidden"
+                        className="bg-card-bg/40 border border-white/5 p-4 rounded-[26px] text-white font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl flex items-center justify-center gap-3 group/btn relative overflow-hidden transition-all hover:bg-card-bg/60"
                       >
-                        <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
                         <ArrowDownRight className="w-4 h-4" />
                         <span className="relative z-10">RETIRAR</span>
                       </motion.button>
@@ -3085,93 +3702,167 @@ export default function App() {
 
                {/* Navigation Grid */}
               {loanBalance > 0 && (
-                <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-[32px] flex items-center justify-between shadow-lg">
+                <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-[32px] flex items-center justify-between shadow-2xl">
                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-red-500/10 rounded-xl flex items-center justify-center text-red-500">
+                      <div className="w-10 h-10 bg-red-500/10 rounded-xl flex items-center justify-center text-red-500 border border-red-500/20">
                          <Landmark className="w-5 h-5" />
                       </div>
                       <div className="space-y-0.5">
                          <p className="text-[9px] font-black text-red-500 uppercase tracking-widest">Crédito Pendente</p>
-                         <p className="text-lg font-black text-slate-900 font-mono">MZN {loanBalance.toLocaleString()}</p>
+                         <p className="text-lg font-black text-white font-mono">MZN {loanBalance.toLocaleString()}</p>
                       </div>
                    </div>
-                   <button 
-                    onClick={() => openOverlay('deposit')}
-                    className="bg-red-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest"
-                   >
-                     Pagar
-                   </button>
-                </div>
-              )}
+                    <button 
+                     onClick={() => openOverlay('deposit')}
+                     className="bg-red-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                    >
+                      Pagar
+                    </button>
+                 </div>
+               )}
 
-              <div className="space-y-4">
-                <div className="flex justify-between items-center px-2">
-                  <h3 className="text-[10px] font-black text-text-gray uppercase tracking-[0.4em]">Serviços & Gestão</h3>
-                  <div className="w-16 h-[1px] bg-black/5" />
-                </div>
-                <div className="grid grid-cols-4 gap-3">
-                   <ActionItem icon={DollarSign} label="Recarga" onClick={() => openOverlay('deposit')} />
-                   <ActionItem icon={ArrowUpRight} label="Saque" onClick={() => openOverlay('withdraw')} />
-                   <ActionItem icon={Landmark} label="Crédito" onClick={() => openOverlay('loan')} />
-                   <ActionItem icon={Users} label="Equipe" onClick={() => setActiveTab('team')} />
-                   <ActionItem icon={HelpCircle} label="Educação" onClick={() => openOverlay('education')} />
-                   <ActionItem icon={TrendingUp} label="Fundo" onClick={() => openOverlay('market')} />
-                   <ActionItem icon={FileText} label="Tarefas" onClick={() => setActiveTab('tasks')} />
-                   <ActionItem icon={Building2} label="Empresa" onClick={() => openOverlay('about')} />
-                </div>
-              </div>
-
-              {/* Quick News Ticker */}
-              <div className="bg-card-bg border border-black/5 p-4 rounded-3xl flex items-center gap-4 overflow-hidden shadow-sm">
-                <div className="flex items-center gap-2 flex-shrink-0 border-r border-black/10 pr-4">
+               <div className="space-y-4">
+                 <div className="flex justify-between items-center px-2">
+                   <h3 className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Serviços & Gestão</h3>
+                   <div className="w-16 h-[1px] bg-white/5" />
+                 </div>
+                 <div className="grid grid-cols-4 gap-3">
+                    <ActionItem icon={DollarSign} label="Recarga" onClick={() => openOverlay('deposit')} />
+                    <ActionItem icon={ArrowUpRight} label="Saque" onClick={() => openOverlay('withdraw')} />
+                    <ActionItem icon={Landmark} label="Crédito" onClick={() => openOverlay('loan')} />
+                    <ActionItem icon={Users} label="Equipe" onClick={() => setActiveTab('team')} />
+                    <ActionItem icon={HelpCircle} label="Educação" onClick={() => openOverlay('education')} />
+                    <ActionItem icon={TrendingUp} label="Fundo" onClick={() => openOverlay('market')} />
+                    <ActionItem icon={FileText} label="Tarefas" onClick={() => setActiveTab('tasks')} />
+                    <ActionItem icon={Building2} label="Empresa" onClick={() => openOverlay('about')} />
+                 </div>
+               </div>
+               {/* Quick News Ticker */}
+              <div className="bg-white/5 border border-white/5 p-4 rounded-3xl flex items-center gap-4 overflow-hidden shadow-2xl">
+                <div className="flex items-center gap-2 flex-shrink-0 border-r border-white/10 pr-4">
                   <Bell className="w-3.5 h-3.5 text-gold" />
                   <span className="text-[9px] font-black text-gold uppercase tracking-widest leading-none">News</span>
                 </div>
-                <div className="flex-1 text-[10px] font-bold text-text-gray uppercase tracking-widest truncate">
-                   Lançamento do fundo MOZA GOLD 2026 com rendimento anual garantido.
-                </div>
-              </div>
+                <div className="flex-1 overflow-hidden">
+                   <motion.div 
+                     animate={{ x: [-20, -500] }}
+                     transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+                     className="whitespace-nowrap text-[9px] font-bold text-white/40 uppercase tracking-widest"
+                   >
+                     Moza Invest: Aumente os seus lucros diários com o novo fundo de investimento VIP 12 • Novos bónus de convite disponíveis • Verifique as suas tarefas diárias
+                   </motion.div>
+                 </div>
+               </div>
             </motion.div>
           )}
 
           {activeTab === 'tasks' && (
             <motion.div key="tasks" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 pt-4">
                <div className="flex flex-col gap-2 px-4">
-                 <h2 className="text-4xl font-black uppercase tracking-tighter text-slate-900">Missões <br /><span className="text-gold">Diárias</span></h2>
-                 <p className="text-text-gray text-[9px] font-black uppercase tracking-[0.4em] opacity-50">Geração de Capital em Tempo Real</p>
+                 <h2 className="text-4xl font-black uppercase tracking-tighter text-white">Missões <br /><span className="text-gold">Diárias</span></h2>
+                 <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.4em] opacity-50">Geração de Capital em Tempo Real</p>
+                 {activeVip > 0 && (
+                   <div className="mt-2 flex items-center justify-between bg-gold/5 border border-gold/10 p-4 rounded-2xl">
+                      <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Progresso de Hoje</span>
+                      <span className="text-sm font-black text-gold font-mono">MZN {dailyTotal.toLocaleString()} / {effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn.toLocaleString()}</span>
+                   </div>
+                 )}
                </div>
                
                <div className="grid gap-4">
-                 {DAILY_TASKS.map(task => (
-                   <motion.div 
-                    key={task.id}
-                    whileHover={{ scale: 1.02 }}
-                    className="bg-card-bg border border-black/5 p-6 rounded-[40px] flex items-center justify-between shadow-lg group relative overflow-hidden"
-                   >
-                     {/* Inner glow */}
-                     <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-gold/10 to-transparent" />
-                     
-                     <div className="flex items-center gap-5 relative z-10">
-                        <div className="w-14 h-14 rounded-[20px] bg-gold/5 flex items-center justify-center text-gold border border-gold/10 group-hover:bg-gold group-hover:text-white transition-all shadow-md">
-                           <TrendingUp className="w-6 h-6" />
+                 {activeVip === 0 ? (
+                   <div className="bg-card-bg/40 border border-white/5 p-10 rounded-[40px] text-center space-y-6 shadow-2xl">
+                      <div className="w-20 h-20 bg-gold/10 rounded-3xl flex items-center justify-center text-gold mx-auto border border-gold/20 animate-pulse">
+                         <Lock className="w-10 h-10" />
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-black text-white uppercase tracking-tighter">Nenhuma Missão Ativa</h3>
+                        <p className="text-xs text-white/40 font-bold uppercase tracking-widest leading-relaxed">Adquira um plano VIP para desbloquear missões diárias e começar a faturar.</p>
+                      </div>
+                      <button 
+                        onClick={() => setActiveTab('vip')}
+                        className="w-full gold-gradient py-5 rounded-2xl text-white font-black uppercase tracking-widest shadow-xl shadow-gold/20 flex items-center justify-center gap-3"
+                      >
+                        <ShieldCheck className="w-5 h-5" />
+                        VER PLANOS VIP
+                      </button>
+                   </div>
+                 ) : (
+                   <>
+                    {/* Active Tasks for Current Level */}
+                    {DAILY_TASKS.filter(t => t.vipLevel === activeVip).map(task => (
+                      <motion.div 
+                        key={task.id}
+                        whileHover={isLimitReachedToday ? {} : { scale: 1.02 }}
+                        className={`backdrop-blur-xl border border-white/5 p-6 rounded-[40px] flex items-center justify-between shadow-2xl group relative overflow-hidden transition-all ${
+                          isLimitReachedToday ? 'bg-white/5 opacity-60' : 'bg-card-bg/40'
+                        }`}
+                      >
+                        <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-gold/10 to-transparent" />
+                        
+                        <div className="flex items-center gap-5 relative z-10">
+                            <div className={`w-14 h-14 rounded-[20px] flex items-center justify-center border transition-all shadow-md ${
+                              isLimitReachedToday ? 'bg-white/10 text-white/20 border-white/5' : 'bg-gold/5 text-gold border-gold/10 group-hover:bg-gold group-hover:text-white'
+                            }`}>
+                              {isLimitReachedToday ? <CheckCircle2 className="w-6 h-6" /> : <TrendingUp className="w-6 h-6" />}
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest ${
+                                  isLimitReachedToday ? 'bg-white/10 text-white/40' : 'bg-gold text-black'
+                                }`}>VIP {task.vipLevel}</span>
+                                <h4 className={`font-black uppercase text-sm tracking-tight leading-none ${
+                                  isLimitReachedToday ? 'text-white/40 italic line-through' : 'text-white/80'
+                                }`}>{task.title}</h4>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                    <p className={`font-black text-xs font-mono uppercase tracking-widest ${
+                                      isLimitReachedToday ? 'text-white/20' : 'text-gold'
+                                    }`}>+ MZN {task.reward.toLocaleString()}</p>
+                              </div>
+                            </div>
                         </div>
-                        <div className="space-y-1">
-                           <h4 className="font-black uppercase text-sm tracking-tight leading-none text-slate-700">{task.title}</h4>
-                           <div className="flex items-center gap-2">
-                                <p className="text-gold font-black text-xs font-mono uppercase tracking-widest">+ MZN {task.reward.toLocaleString()}</p>
-                           </div>
+                        <motion.button 
+                          whileHover={isLimitReachedToday ? {} : { scale: 1.05 }}
+                          whileTap={isLimitReachedToday ? {} : { scale: 0.95 }}
+                          disabled={isLimitReachedToday}
+                          onClick={() => handleCompleteTask(task.id, task.reward)} 
+                          className={`font-black px-6 py-3.5 rounded-[18px] text-[10px] uppercase tracking-widest relative z-10 transition-all ${
+                            isLimitReachedToday 
+                            ? 'bg-white/10 text-white/20 cursor-not-allowed border border-white/5 shadow-none' 
+                            : 'gold-gradient text-white shadow-lg'
+                          }`}
+                        >
+                          {isLimitReachedToday ? 'CONCLUÍDO' : 'COLETAR'}
+                        </motion.button>
+                      </motion.div>
+                    ))}
+
+                    {/* Preview of next level tasks */}
+                    {DAILY_TASKS.filter(t => t.vipLevel === activeVip + 1 && effectiveVipLevels.find(v => v.id === activeVip + 1)?.available).map(task => (
+                      <div 
+                        key={task.id}
+                        className="bg-white/5 border border-white/5 p-6 rounded-[40px] flex items-center justify-between shadow-sm opacity-50 relative overflow-hidden"
+                      >
+                        <div className="flex items-center gap-5 grayscale">
+                            <div className="w-14 h-14 rounded-[20px] bg-white/10 flex items-center justify-center text-white/40 border border-white/10">
+                              <Lock className="w-6 h-6" />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="bg-white/10 text-white/40 text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest">VIP {task.vipLevel}</span>
+                                <h4 className="font-black uppercase text-sm tracking-tight leading-none text-white/20 italic">{task.title}</h4>
+                              </div>
+                              <p className="text-white/20 font-black text-xs font-mono uppercase tracking-widest">+ MZN {task.reward.toLocaleString()}</p>
+                            </div>
                         </div>
-                     </div>
-                     <motion.button 
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleCompleteTask(task.id, task.reward)} 
-                      className="gold-gradient text-white font-black px-6 py-3.5 rounded-[18px] text-[10px] uppercase tracking-widest shadow-lg relative z-10"
-                     >
-                       COLETAR
-                     </motion.button>
-                   </motion.div>
-                 ))}
+                        <div className="bg-white/10 text-white/40 font-black px-6 py-3.5 rounded-[18px] text-[10px] uppercase tracking-widest border border-white/5">
+                          BLOQUEADO
+                        </div>
+                      </div>
+                    ))}
+                   </>
+                 )}
                </div>
             </motion.div>
           )}
@@ -3180,10 +3871,10 @@ export default function App() {
             <motion.div key="vip" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-8">
                <div className="text-center space-y-2">
                  <h2 className="text-4xl font-black uppercase tracking-tighter text-gold">Premium VIP</h2>
-                 <p className="text-text-gray text-[10px] font-black uppercase tracking-[0.5em] opacity-60">Investment Portfolio</p>
+                 <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.5em] opacity-60">Investment Portfolio</p>
                </div>
                <div className="grid gap-6">
-                 {effectiveVipLevels.map(level => (
+                 {effectiveVipLevels.filter(v => v.available).map(level => (
                    <React.Fragment key={level.id}>
                      <VipCard level={level} status={activeVip === level.id ? 'active' : 'available'} onActivate={handleActivateVip} />
                    </React.Fragment>
@@ -3200,7 +3891,7 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="space-y-8 pt-4"
             >
-               <div className="bg-gradient-to-br from-gold/20 via-white to-slate-50 p-10 rounded-[48px] border border-black/5 relative overflow-hidden shadow-xl">
+               <div className="bg-bg-deep/40 backdrop-blur-3xl rounded-[48px] p-10 border border-white/5 relative overflow-hidden shadow-2xl">
                   <div className="absolute top-0 right-0 p-8 opacity-10">
                     <Users className="w-32 h-32 text-gold" />
                   </div>
@@ -3209,18 +3900,18 @@ export default function App() {
                         <Users className="w-10 h-10" />
                      </div>
                      <div className="space-y-1">
-                        <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-900">Minha Rede</h2>
-                        <p className="text-text-gray text-[10px] font-black uppercase tracking-widest max-w-[240px] leading-relaxed opacity-60">Expanda a sua influência e maximize os seus lucros.</p>
+                        <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Minha Rede</h2>
+                        <p className="text-white/40 text-[10px] font-black uppercase tracking-widest max-w-[240px] leading-relaxed opacity-60">Expanda a sua influência e maximize os seus lucros.</p>
                      </div>
                      
                      <div className="w-full space-y-4 pt-2">
-                        <div className="bg-white/80 px-6 py-5 rounded-2xl border border-black/5 font-mono font-black text-lg text-gold text-center tracking-[0.2em] shadow-inner">
+                        <div className="bg-white/5 border border-white/5 px-6 py-5 rounded-2xl font-mono font-black text-lg text-gold text-center tracking-[0.2em] shadow-inner">
                            {userPhone.slice(-4) ? `MOZA-${userPhone.slice(-4)}` : 'MOZA-VIP'}
                         </div>
                         <motion.button 
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
-                          className="w-full gold-gradient text-black py-5 rounded-[22px] font-black text-xs uppercase tracking-[0.2em] shadow-xl"
+                          className="w-full gold-gradient text-white py-5 rounded-[22px] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-gold/20"
                         >
                            CONVIDAR AGORA
                         </motion.button>
@@ -3228,40 +3919,40 @@ export default function App() {
                   </div>
                </div>
 
-               <div className="space-y-4">
-                 <div className="flex justify-between items-center px-4">
-                    <h3 className="text-[10px] font-black text-text-gray uppercase tracking-[0.4em]">Níveis de Comissão</h3>
-                    <div className="w-16 h-[1px] bg-black/5" />
-                 </div>
-                 <div className="grid gap-4">
-                   {TEAM_LEVELS.map((level, i) => (
-                      <motion.div 
-                        key={i} 
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        className="bg-card-bg border border-black/5 rounded-[32px] p-6 flex justify-between items-center group transition-all hover:bg-black/5"
-                      >
-                          <div className="flex gap-5 items-center">
-                              <div className="w-10 h-10 rounded-2xl bg-gold/5 flex items-center justify-center text-gold border border-gold/10">
-                                <span className="text-xs font-black">{i + 1}</span>
-                              </div>
-                              <div>
-                                  <h4 className="font-black text-sm uppercase tracking-tight text-slate-700">{level.level}</h4>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <TrendingUp className="w-3 h-3 text-gold" />
-                                    <p className="text-[9px] text-gold font-black uppercase tracking-widest">Ganhos: {level.commission}</p>
-                                  </div>
-                              </div>
-                          </div>
-                          <div className="space-y-0.5 text-right">
-                               <div className="text-2xl font-black text-slate-900 font-mono leading-none tracking-tighter">{level.count}</div>
-                               <p className="text-[8px] text-text-gray font-black uppercase tracking-widest opacity-50">MEMBROS</p>
-                          </div>
-                      </motion.div>
-                   ))}
-                 </div>
-               </div>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center px-4">
+                   <h3 className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Níveis de Comissão</h3>
+                   <div className="w-16 h-[1px] bg-white/5" />
+                </div>
+                <div className="grid gap-4">
+                  {TEAM_LEVELS.map((level, i) => (
+                     <motion.div 
+                       key={i} 
+                       initial={{ opacity: 0, x: -20 }}
+                       animate={{ opacity: 1, x: 0 }}
+                       transition={{ delay: i * 0.1 }}
+                       className="bg-card-bg/40 backdrop-blur-xl border border-white/5 rounded-[32px] p-6 flex justify-between items-center group transition-all hover:bg-white/5 shadow-2xl"
+                     >
+                         <div className="flex gap-5 items-center">
+                             <div className="w-10 h-10 rounded-2xl bg-gold/5 flex items-center justify-center text-gold border border-gold/10">
+                               <span className="text-xs font-black">{i + 1}</span>
+                             </div>
+                             <div>
+                                 <h4 className="font-black text-sm uppercase tracking-tight text-white/80">{level.level}</h4>
+                                 <div className="flex items-center gap-2 mt-0.5">
+                                   <TrendingUp className="w-3 h-3 text-gold" />
+                                   <p className="text-[9px] text-gold font-black uppercase tracking-widest">Ganhos: {level.commission}</p>
+                                 </div>
+                             </div>
+                         </div>
+                         <div className="space-y-0.5 text-right">
+                              <div className="text-2xl font-black text-white font-mono leading-none tracking-tighter">{level.count}</div>
+                              <p className="text-[8px] text-white/20 font-black uppercase tracking-widest opacity-50">MEMBROS</p>
+                         </div>
+                     </motion.div>
+                  ))}
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -3299,7 +3990,7 @@ export default function App() {
                   <div className="text-center space-y-2">
                     <div className="flex flex-col items-center gap-1 group">
                       <div className="flex items-center justify-center gap-2">
-                        <h2 className="text-2xl font-black tracking-widest text-slate-900 uppercase italic tracking-tighter">
+                        <h2 className="text-2xl font-black tracking-widest text-white uppercase italic tracking-tighter">
                           {userName || (userPhone.slice(-4) ? `INVESTIDOR_${userPhone.slice(-4)}` : 'UTILIZADOR')}
                         </h2>
                         <button 
@@ -3309,18 +4000,18 @@ export default function App() {
                           <Settings className="w-4 h-4" />
                         </button>
                       </div>
-                      <p className="text-[10px] font-bold text-text-gray/50 uppercase tracking-[0.3em]">Clique para editar perfil</p>
+                      <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em]">Clique para editar perfil</p>
                     </div>
                     <div className="flex items-center justify-center gap-3">
                       <span className="text-[10px] font-black text-gold border border-gold/30 px-3 py-1 rounded-full uppercase tracking-widest bg-gold/5">
                         {effectiveVipLevels.find(v => v.id === activeVip)?.badge || 'START'}
                       </span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                     <p className="text-text-gray font-black text-xs font-mono tracking-widest">+{userPhone}</p>
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/10" />
+                     <p className="text-white/60 font-black text-xs font-mono tracking-widest">+{userPhone}</p>
                    </div>
 
                    <div className="flex flex-col items-center gap-1 mt-2 p-4 bg-white/5 rounded-[24px] border border-white/5 w-full max-w-[200px]">
-                      <span className="text-[8px] font-black text-text-gray uppercase tracking-widest opacity-50">CÓDIGO DE CONVITE</span>
+                      <span className="text-[8px] font-black text-white/40 uppercase tracking-widest opacity-50">CÓDIGO DE CONVITE</span>
                       <div className="flex items-center gap-3">
                         <span className="text-md font-black text-gold font-mono tracking-[0.2em]">{inviteCode || '...'}</span>
                         <button 
@@ -3328,7 +4019,7 @@ export default function App() {
                             navigator.clipboard.writeText(inviteCode);
                             alert('Código copiado!');
                           }}
-                          className={`${!inviteCode ? 'opacity-30 pointer-events-none' : ''} text-white/50 hover:text-gold transition-colors`}
+                          className={`${!inviteCode ? 'opacity-30 pointer-events-none' : ''} text-white/40 hover:text-gold transition-colors`}
                         >
                           <Share2 className="w-3 h-3" />
                         </button>
@@ -3337,21 +4028,21 @@ export default function App() {
                  </div>
                </div>
 
-               {/* Asset Overview Card */}
-               <div className="bg-gradient-to-br from-gold/10 via-white to-slate-50 rounded-[48px] p-8 border border-black/5 shadow-xl relative overflow-hidden">
+              {/* Asset Overview Card */}
+               <div className="bg-white/5 backdrop-blur-3xl rounded-[48px] p-8 border border-white/5 shadow-2xl relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-8 opacity-10">
                     <TrendingUp className="w-24 h-24 text-gold" />
                   </div>
                   <div className="relative z-10 space-y-6">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-text-gray uppercase tracking-[0.4em]">{t('balance')}</span>
-                      <div className="bg-black/5 px-3 py-1 rounded-full flex items-center gap-2">
+                      <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em]">{t('balance')}</span>
+                      <div className="bg-white/5 px-3 py-1 rounded-full flex items-center gap-2 border border-white/10">
                         <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-[9px] font-black text-slate-900/50 uppercase tracking-widest">Ativo</span>
+                        <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">Ativo</span>
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-4xl font-black text-slate-900 font-mono tracking-tighter">
+                      <div className="text-4xl font-black text-white font-mono tracking-tighter">
                         MZN {balance.toLocaleString()}
                       </div>
                       <p className="text-[10px] text-gold font-bold uppercase tracking-[0.2em]">+ {((balance * 0.125) / 30).toFixed(2)} MZN HOJE</p>
@@ -3360,10 +4051,10 @@ export default function App() {
                </div>
 
                {/* Language Selector */}
-               <div className="bg-card-bg border border-black/5 rounded-[40px] p-6 space-y-4 mb-4 shadow-sm">
+               <div className="bg-card-bg/40 backdrop-blur-xl border border-white/5 rounded-[40px] p-6 space-y-4 mb-4 shadow-2xl">
                   <div className="flex items-center gap-3">
                     <Globe className="w-5 h-5 text-gold" />
-                    <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{t('settings')}</span>
+                    <span className="text-[10px] font-black text-white uppercase tracking-widest">{t('settings')}</span>
                   </div>
                   <div className="h-24 overflow-x-auto overflow-y-hidden">
                     <div className="flex gap-2 pb-2">
@@ -3371,7 +4062,7 @@ export default function App() {
                         <button
                           key={lang.id}
                           onClick={() => setLanguage(lang.id)}
-                          className={`min-w-[80px] p-3 rounded-2xl flex flex-col items-center gap-1 transition-all flex-shrink-0 ${language === lang.id ? 'bg-gold text-white shadow-lg scale-105' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                          className={`min-w-[80px] p-3 rounded-2xl flex flex-col items-center gap-1 transition-all flex-shrink-0 ${language === lang.id ? 'bg-gold text-white shadow-lg scale-105 shadow-gold/20' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
                         >
                           <span className="text-xl">{lang.flag}</span>
                           <span className="text-[8px] font-black uppercase tracking-tight">{lang.name}</span>
@@ -3395,45 +4086,51 @@ export default function App() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={item.action}
-                      className="bg-card-bg/40 backdrop-blur-xl border border-white/5 p-6 rounded-[32px] flex flex-col items-center gap-4 group shadow-xl transition-all hover:bg-white/5"
+                      className="bg-white/5 border border-white/5 p-6 rounded-[32px] flex flex-col items-center gap-4 group shadow-sm transition-all hover:bg-white/10"
                     >
                       <div className={`w-12 h-12 rounded-2xl ${item.color.split(' ')[0]} flex items-center justify-center transition-transform group-hover:scale-110`}>
                         <item.icon className="w-6 h-6" />
                       </div>
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 group-hover:text-gold transition-colors text-center">{item.label}</span>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 group-hover:text-gold transition-colors text-center">{item.label}</span>
                     </motion.button>
                   ))}
                </div>
 
                {/* Account Stats List */}
                {loanBalance > 0 && (
-                  <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-[40px] flex items-center justify-between mb-4 shadow-xl">
+                  <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-[40px] flex items-center justify-between mb-4 shadow-2xl">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500">
                           <Landmark className="w-6 h-6" />
                         </div>
                         <div>
                           <p className="text-[10px] font-black text-red-500 uppercase tracking-widest leading-none mb-1">Dívida de Crédito</p>
-                          <h4 className="text-2xl font-black text-slate-900 font-mono">MZN {loanBalance.toLocaleString()}</h4>
+                          <h4 className="text-2xl font-black text-white font-mono">MZN {loanBalance.toLocaleString()}</h4>
                         </div>
                     </div>
                   </div>
                )}
-               <div className="bg-card-bg rounded-[40px] border border-black/5 overflow-hidden divide-y divide-black/5 shadow-md">
-                  {[
-                    { l: "Nível VIP Atual", v: `VIP ${activeVip}`, icon: Star },
-                    { l: "Membros Diretos", v: TEAM_LEVELS[0].count.toString(), icon: Users },
-                    { l: "Data de Adesão", v: "Maio 2026", icon: CheckCircle2 },
-                    { l: "Status Conta", v: "Verificada", icon: ShieldCheck, color: "text-green-500" }
-                  ].map((s, i) => (
-                    <div key={i} className="px-8 py-5 flex justify-between items-center group hover:bg-black/5 transition-colors">
-                       <div className="flex items-center gap-4">
-                          <s.icon className="w-4 h-4 text-gold opacity-50" />
-                          <span className="text-[10px] text-text-gray font-black uppercase tracking-widest">{s.l}</span>
-                       </div>
-                       <span className={`text-xs font-black uppercase tracking-widest ${s.color || 'text-slate-900'}`}>{s.v}</span>
-                    </div>
-                  ))}
+               <div className="bg-card-bg/40 backdrop-blur-xl border border-white/5 rounded-[40px] p-8 mt-6">
+                 <div className="flex items-center gap-3 mb-6">
+                   <ShieldCheck className="w-5 h-5 text-gold" />
+                   <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Privacidade & Segurança</h4>
+                 </div>
+                 <div className="bg-white/5 rounded-[40px] border border-white/5 overflow-hidden divide-y divide-white/5 shadow-2xl">
+                    {[
+                      { l: "Nível VIP Atual", v: `VIP ${activeVip}`, icon: Star },
+                      { l: "Membros Diretos", v: TEAM_LEVELS[0].count.toString(), icon: Users },
+                      { l: "Data de Adesão", v: "Maio 2026", icon: CheckCircle2 },
+                      { l: "Status Conta", v: "Verificada", icon: ShieldCheck, color: "text-green-400" }
+                    ].map((s, i) => (
+                      <div key={i} className="px-8 py-5 flex justify-between items-center group hover:bg-white/5 transition-colors">
+                         <div className="flex items-center gap-4">
+                            <s.icon className="w-4 h-4 text-gold opacity-50" />
+                            <span className="text-[10px] text-white/40 font-black uppercase tracking-widest">{s.l}</span>
+                         </div>
+                         <span className={`text-xs font-black uppercase tracking-widest ${s.color || 'text-white'}`}>{s.v}</span>
+                      </div>
+                    ))}
+                 </div>
                </div>
 
                <motion.button 
@@ -3450,8 +4147,8 @@ export default function App() {
       </main>
 
         {/* Premium Bottom Navigation */}
-        <nav className="fixed bottom-0 left-0 right-0 z-[1000] pb-8 pt-4 px-6 bg-gradient-to-t from-bg-deep via-bg-deep/80 to-transparent pointer-events-none">
-          <div className="max-w-md mx-auto bg-white/70 backdrop-blur-3xl border border-black/5 p-2.5 rounded-[40px] shadow-xl flex justify-between items-center relative overflow-hidden group pointer-events-auto">
+        <nav className="fixed bottom-0 left-0 right-0 z-[1000] pb-8 pt-4 px-6 bg-gradient-to-t from-[#03060b] via-[#03060b]/80 to-transparent pointer-events-none">
+          <div className="max-w-md mx-auto bg-card-bg/40 backdrop-blur-3xl border border-white/5 p-2.5 rounded-[40px] shadow-2xl flex justify-between items-center relative overflow-hidden group pointer-events-auto">
             {/* Nav inner glow */}
             <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-gold/30 to-transparent opacity-50" />
             
@@ -3463,7 +4160,7 @@ export default function App() {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-[28px] transition-all relative group/nav min-w-[64px] ${isActive ? 'text-gold' : 'text-slate-400 hover:text-slate-900'}`}
+                  className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-[28px] transition-all relative group/nav min-w-[64px] ${isActive ? 'text-gold' : 'text-white/40 hover:text-white'}`}
                 >
                  {isActive && (
                    <motion.div 
@@ -3472,7 +4169,7 @@ export default function App() {
                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
                    />
                  )}
-                 <Icon className={`w-6 h-6 relative z-10 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(197,160,89,0.4)] stroke-[2.5px]' : 'group-hover/nav:scale-110 stroke-[2.0px]'}`} />
+                 <Icon className={`w-6 h-6 relative z-10 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(212,175,55,0.4)] stroke-[2.5px]' : 'group-hover/nav:scale-110 stroke-[2.0px]'}`} />
                  <span className={`text-[8px] sm:text-[8.5px] font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] relative z-10 transition-all ${isActive ? 'opacity-100' : 'opacity-40'}`}>
                     {t(item.id)}
                  </span>

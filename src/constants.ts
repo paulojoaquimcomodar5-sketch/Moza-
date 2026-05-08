@@ -58,11 +58,45 @@ export const FINANCIAL_METHODS = [
 ];
 
 export const DAILY_TASKS = [
-  { id: 1, title: 'Assistir Anúncio Premium', reward: 50, category: 'PUBLICIDADE', time: '30s' },
-  { id: 2, title: 'Validar Transação VIP 4', reward: 120, category: 'VALIDAÇÃO', time: '1min' },
-  { id: 3, title: 'Compartilhar Link Diário', reward: 30, category: 'SOCIAL', time: '2min' },
-  { id: 4, title: 'Reclame Recompensa Log-in', reward: 10, category: 'DIÁRIO', time: 'Agora' },
-  { id: 5, title: 'Feedback de Mercado', reward: 80, category: 'PESQUISA', time: '5min' },
+  // VIP 1 - Total 36 MZN (2 tarefas de 18)
+  { id: 1, title: 'Visualizar Publicidade Moza', reward: 18, category: 'MARKETING', time: '15s', vipLevel: 1 },
+  { id: 2, title: 'Avaliar App na Play Store', reward: 18, category: 'FEEDBACK', time: '30s', vipLevel: 1 },
+  
+  // VIP 2 - Total 145 MZN (2 tarefas de 72.5)
+  { id: 3, title: 'Análise de Gráfico Diário', reward: 72.5, category: 'ANÁLISE', time: '1min', vipLevel: 2 },
+  { id: 4, title: 'Partilhar no WhatsApp Business', reward: 72.5, category: 'SOCIAL', time: '45s', vipLevel: 2 },
+  
+  // VIP 3 - Total 520 MZN (2 tarefas de 260)
+  { id: 5, title: 'Auditoria de Transações Elites', reward: 260, category: 'FINANÇAS', time: '2min', vipLevel: 3 },
+  { id: 6, title: 'Relatório de Mercado Semanal', reward: 260, category: 'PESQUISA', time: '3min', vipLevel: 3 },
+  
+  // VIP 4 - Total 2800 MZN (2 tarefas de 1400)
+  { id: 7, title: 'Validar Lotes de Investimento', reward: 1400, category: 'OPERACIONAL', time: '5min', vipLevel: 4 },
+  { id: 8, title: 'Consultoria de Ativos Digitais', reward: 1400, category: 'ESTRATÉGIA', time: '10min', vipLevel: 4 },
+  
+  // VIP 5 - Total 12500 MZN (2 tarefas de 6250)
+  { id: 9, title: 'Aprovação de Crédito Institucional', reward: 6250, category: 'GESTÃO', time: '15min', vipLevel: 5 },
+  { id: 10, title: 'Gestão de Fundo de Reserva', reward: 6250, category: 'DIRETORIA', time: '20min', vipLevel: 5 },
+
+  // VIP 6 - Total 45000 MZN
+  { id: 11, title: 'Supervisão de Mercado Platinum', reward: 22500, category: 'MASTER', time: '30min', vipLevel: 6 },
+  { id: 12, title: 'Aprovação de Ativos Estratégicos', reward: 22500, category: 'DIRETORIA', time: '40min', vipLevel: 6 },
+
+  // VIP 7 - Total 150000 MZN
+  { id: 13, title: 'Análise Diamond de Riscos', reward: 75000, category: 'RISCO', time: '1h', vipLevel: 7 },
+  { id: 14, title: 'Consumo de Dados Institucionais', reward: 75000, category: 'DADOS', time: '1h', vipLevel: 7 },
+
+  // VIP 8 - Total 550000 MZN
+  { id: 15, title: 'Protocolo Crown de Segurança', reward: 275000, category: 'SECURITY', time: '2h', vipLevel: 8 },
+  { id: 16, title: 'Validação Transacional Global', reward: 275000, category: 'SYSTEM', time: '2h', vipLevel: 8 },
+
+  // VIP 9 - Total 1800000 MZN
+  { id: 17, title: 'Oráculo de Projeção Econômica', reward: 900000, category: 'FUTURE', time: '3h', vipLevel: 9 },
+  { id: 18, title: 'Gestão de Venture Capital', reward: 900000, category: 'INVEST', time: '4h', vipLevel: 9 },
+
+  // VIP 10 - Total 7000000 MZN
+  { id: 19, title: 'Protocolo Cosmic de Ativos', reward: 3500000, category: 'ORIGIN', time: '6h', vipLevel: 10 },
+  { id: 20, title: 'Governança Total de Ecossistema', reward: 3500000, category: 'GOD_MODE', time: '8h', vipLevel: 10 },
 ];
 
 export const TEAM_LEVELS = [
@@ -116,6 +150,51 @@ export const VIP_LEVELS = [
     dailyReturn: 12500,
     isPremium: false,
     benefits: ['Retorno Máximo', 'Saques Ilimitados', 'Acesso Prioritário Global', 'Bónus de Rede 15%']
+  },
+  { 
+    id: 6, 
+    name: 'VIP 6', 
+    badge: 'PLATINUM',
+    investment: 500000, 
+    dailyReturn: 45000,
+    isPremium: false,
+    benefits: ['Gestor VIP 24/7', 'Eventos Internacionais', 'Cartão Metal Exclusivo']
+  },
+  { 
+    id: 7, 
+    name: 'VIP 7', 
+    badge: 'DIAMOND',
+    investment: 1500000, 
+    dailyReturn: 150000,
+    isPremium: false,
+    benefits: ['Participação em Dividendos', 'Viagem Anual All-Inclusive', 'Seguro de Ativos']
+  },
+  { 
+    id: 8, 
+    name: 'VIP 8', 
+    badge: 'CROWN',
+    investment: 5000000, 
+    dailyReturn: 550000,
+    isPremium: false,
+    benefits: ['Conselho Consultivo', 'Jato Privado (1x/ano)', 'Residência Digital']
+  },
+  { 
+    id: 9, 
+    name: 'VIP 9', 
+    badge: 'ORACLE',
+    investment: 15000000, 
+    dailyReturn: 1800000,
+    isPremium: false,
+    benefits: ['Governança Institucional', 'Fundo de Venture Moza', 'Imortalidade Financeira']
+  },
+  { 
+    id: 10, 
+    name: 'VIP 10', 
+    badge: 'COSMIC',
+    investment: 50000000, 
+    dailyReturn: 7000000,
+    isPremium: false,
+    benefits: ['Controle de Ecossistema', 'Herança Transgeracional', 'Status Lendário']
   },
 ];
 
