@@ -5,7 +5,10 @@
       "description": "User account information and balance",
       "type": "object",
       "properties": {
-        "phone": { "type": "string", "description": "User phone number" },
+        "phone": { "type": "string", "description": "User phone number (optional for Google users)" },
+        "name": { "type": "string", "description": "Full name" },
+        "email": { "type": "string", "description": "Email address" },
+        "photoURL": { "type": "string", "description": "Profile picture URL" },
         "balance": { "type": "number", "description": "Current account balance" },
         "activeVip": { "type": "number", "description": "Current active VIP level ID" },
         "loanBalance": { "type": "number", "description": "Current pending loan amount" },
@@ -14,7 +17,7 @@
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["phone", "balance", "activeVip", "createdAt", "updatedAt"]
+      "required": ["balance", "activeVip", "createdAt", "updatedAt"]
     },
     "Transaction": {
       "title": "Financial Transaction",

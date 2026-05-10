@@ -56,16 +56,20 @@ service cloud.firestore {
     // The phone number is stored inside the document.
     match /users/{userId} {
       allow get: if isOwner(userId) || isSystemAdmin();
-      allow list: if isAdmin();
+      allow list: if isSignedIn() && (
+        isAdmin() || 
+        resource.data.get('referredBy', '') == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('inviteCode', '')
+      );
       allow create: if isSignedIn() && request.auth.uid == userId 
         && incoming().balance == 25 // Initial bonus
         && incoming().activeVip == 0
-        && incoming().phone is string && incoming().phone.size() >= 9
+        && (incoming().get('phone', '') == '' || (incoming().phone is string && incoming().phone.size() >= 9))
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
       
       allow update: if (isOwner(userId)
-        && incoming().phone == existing().phone // Phone is immutable
+        && (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'photoURL', 'balance', 'activeVip', 'loanBalance', 'dailyTotal', 'lastTaskDate', 'updatedAt', 'language', 'inviteCode']))
+        && incoming().get('phone', '') == existing().get('phone', '') // Phone is immutable if exists
         && incoming().createdAt == existing().createdAt // CreatedAt is immutable
         && incoming().updatedAt == request.time)
         || isSystemAdmin();
@@ -77,7 +81,6 @@ service cloud.firestore {
       allow get: if (isSignedIn() && (resource.data.userId == request.auth.uid)) || isAdmin();
       
       allow create: if (isSignedIn() 
-        && (request.auth.token.email_verified == true || request.auth.uid == 'm8ObXjhxx9e3oUgZwyQB1OIcc472')
         && incoming().userId == request.auth.uid
         && incoming().amount is number
         && incoming().type in ['deposit', 'withdraw', 'reward', 'investment']

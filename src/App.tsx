@@ -27,6 +27,7 @@ import {
   Users,
   User,
   Grid,
+  Youtube,
   LayoutGrid,
   ArrowUpRight,
   Headphones,
@@ -55,14 +56,22 @@ import {
   LayoutDashboard,
   Search,
   AlertCircle,
+  AlertTriangle,
   Ticket,
   Filter,
   Calendar,
-  Clock
+  Clock,
+  Zap,
+  Bomb,
+  Gem,
+  Gamepad2,
+  ImageIcon,
+  Copy
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 // --- Overlay Management Context ---
-type OverlayType = 'none' | 'deposit' | 'withdraw' | 'records' | 'box' | 'support' | 'market' | 'about' | 'ai_helper' | 'live_chat' | 'education' | 'loan' | 'admin' | 'deposit_manager' | 'edit_profile';
+type OverlayType = 'none' | 'deposit' | 'withdraw' | 'records' | 'box' | 'support' | 'market' | 'about' | 'ai_helper' | 'live_chat' | 'education' | 'loan' | 'admin' | 'deposit_manager' | 'edit_profile' | 'mines_tutorial';
 
 interface OverlayContextType {
   view: OverlayType;
@@ -109,7 +118,10 @@ import {
   createUserWithEmailAndPassword, 
   onAuthStateChanged,
   User as FirebaseUser,
-  signOut
+  signOut,
+  GoogleAuthProvider,
+  signInWithPopup,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -128,29 +140,23 @@ import {
   increment,
   runTransaction,
   getDocs,
-  deleteDoc
+  deleteDoc,
+  getDocFromCache,
+  getDocFromServer,
+  enableIndexedDbPersistence
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
-export const auth = getAuth(app);
 
-// Connectivity check as per requirements
-import { doc as fsDoc, getDocFromCache, getDocFromServer } from 'firebase/firestore';
-async function testFirebaseConnection() {
-  try {
-    // Attempt a silent read to verify server connectivity
-    await getDocFromServer(fsDoc(db, '_internal_', 'connection_test')).catch(() => {});
-    console.log("Firebase Connected Successfully");
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('offline')) {
-      console.error("Firebase is offline. Check your configuration.");
-    }
-  }
-}
-testFirebaseConnection();
+// Enable persistence to save on reads
+try {
+  enableIndexedDbPersistence(db).catch(() => {});
+} catch (e) {}
+
+export const auth = getAuth(app);
 
 // Error Handling Helper
 enum OperationType {
@@ -174,19 +180,29 @@ interface FirestoreErrorInfo {
   }
 }
 
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-    },
-    operationType,
-    path
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null, setQuota?: (val: boolean) => void) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const isQuota = errorMessage.toLowerCase().includes('quota');
+  
+  if (isQuota && setQuota) {
+    setQuota(true);
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+
+  // Only log if it's not a quota error or if we want to debug
+  if (!isQuota) {
+    const errInfo: FirestoreErrorInfo = {
+      error: errorMessage,
+      authInfo: {
+        userId: auth.currentUser?.uid,
+        email: auth.currentUser?.email,
+        emailVerified: auth.currentUser?.emailVerified,
+        isAnonymous: auth.currentUser?.isAnonymous,
+      },
+      operationType,
+      path
+    }
+    console.error('Firestore Error: ', JSON.stringify(errInfo));
+  }
 }
 
 // --- Benefit Icon Helper ---
@@ -289,11 +305,13 @@ const generateInviteCode = () => {
 // --- Auth Component (Login) ---
 interface AuthScreenProps {
   onLogin: (phone: string) => void;
+  onBack?: () => void;
 }
 
-const AuthScreen = ({ onLogin }: AuthScreenProps) => {
-  const [isLogin, setIsLogin] = useState(true);
+const AuthScreen = ({ onLogin, onBack }: AuthScreenProps) => {
+  const [authView, setAuthView] = useState<'login' | 'register' | 'forgot'>('login');
   const [phone, setPhone] = useState('258');
+  const [emailForReset, setEmailForReset] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
@@ -302,6 +320,52 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
   const [status, setStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setIsLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Check if user exists in Firestore
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        const initialBalance = 25;
+        await setDoc(userDocRef, {
+          name: user.displayName || '',
+          email: user.email || '',
+          photoURL: user.photoURL || '',
+          balance: initialBalance,
+          activeVip: 0,
+          loanBalance: 0,
+          role: 'user',
+          referredBy: 'MOZA2026',
+          inviteCode: generateInviteCode(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+
+        await addDoc(collection(db, 'transactions'), {
+          userId: user.uid,
+          type: 'reward',
+          amount: initialBalance,
+          status: 'completed',
+          date: 'HOJE',
+          method: 'Bónus Inicial (Google)',
+          createdAt: serverTimestamp()
+        });
+      }
+    } catch (err: any) {
+      console.error('Google Auth Error:', err);
+      setError('Falha ao entrar com Google. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -309,22 +373,45 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
     
     const isValidPhone = phone.length >= 9;
     const isValidPassword = password.length >= 6;
-    const passwordsMatch = isLogin || password === confirmPassword;
+    const passwordsMatch = authView === 'login' || password === confirmPassword;
 
-    if (!isValidPhone) return setError('Insira um número de telefone válido.');
-    if (!isValidPassword) return setError('A senha deve ter pelo menos 6 caracteres.');
-    if (!passwordsMatch) return setError('As senhas não coincidem.');
+    if (authView !== 'forgot') {
+      if (!isValidPhone) return setError('Insira um número de telefone válido.');
+      if (!isValidPassword) return setError('A senha deve ter pelo menos 6 caracteres.');
+      if (!passwordsMatch) return setError('As senhas não coincidem.');
+    } else {
+      if (!emailForReset.includes('@') && !emailForReset.match(/^\d{9,12}$/)) {
+        return setError('Insira um e-mail válido ou número de telefone para recuperação.');
+      }
+    }
 
     setIsLoading(true);
 
     try {
+      if (authView === 'forgot') {
+        const resetEmail = emailForReset.trim();
+        // Check if it's a phone account formatted as email or just a phone number
+        const isInternalPhoneAccount = resetEmail.endsWith('@moza.com') || resetEmail.match(/^\d{9,12}$/);
+        
+        if (isInternalPhoneAccount) {
+          setError('Contas de telefone devem ser recuperadas via Suporte WhatsApp para sua segurança.');
+          setIsLoading(false);
+          return;
+        }
+
+        await sendPasswordResetEmail(auth, resetEmail);
+        setStatus('Link de redefinição enviado! Verifique a sua caixa de entrada e a pasta de SPAM.');
+        setIsLoading(false);
+        return;
+      }
+
       const sanitizedPhone = phone.trim().replace(/\s+/g, '').replace(/[^\d]/g, '');
       const normalizedPhone = sanitizedPhone.length >= 12 && sanitizedPhone.startsWith('258') ? sanitizedPhone.slice(3) : sanitizedPhone;
       const isAdminPhone = normalizedPhone === '858778905';
       
       const email = `${normalizedPhone}@moza.com`;
 
-      if (isLogin) {
+      if (authView === 'login') {
         await signInWithEmailAndPassword(auth, email, password.trim());
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password.trim());
@@ -399,7 +486,7 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
       const isAdminPhone = normalizedPhone === '858778905';
 
       if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
-        if (isAdminPhone && isLogin) {
+        if (isAdminPhone && authView === 'login') {
           setError('ERRO DE ACESSO: Verifique se a senha está correta. Se é o seu primeiro acesso, use a aba "CRIAR CONTA" com a senha admin12.');
         } else {
           setError('DADOS INCORRETOS: Verifique o número e senha. Se ainda não tem conta, use a aba "CRIAR CONTA".');
@@ -439,15 +526,15 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
             transition={{ type: "spring", stiffness: 200, damping: 20 }}
             className="inline-block"
           >
-            <Logo className="scale-125" />
+            <Logo className="scale-110" />
           </motion.div>
           
           <div className="space-y-1">
             <h2 className="text-3xl font-black text-white uppercase tracking-tight">
-              {isLogin ? 'Bem-vindo' : 'Premium Access'}
+              {authView === 'login' ? 'Bem-vindo' : authView === 'register' ? 'Premium Access' : 'Recuperar Senha'}
             </h2>
             <p className="text-white/40 text-xs font-bold uppercase tracking-widest opacity-60">
-              {isLogin ? 'Inicie sessão na sua conta' : 'Crie a sua conta de investidor'}
+              {authView === 'login' ? 'Inicie sessão na sua conta' : authView === 'register' ? 'Crie a sua conta de investidor' : 'Enviaremos um link para o seu e-mail'}
             </p>
           </div>
         </div>
@@ -463,6 +550,7 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
           <AnimatePresence mode="wait">
             {error && (
               <motion.div 
+                key="err"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
@@ -474,6 +562,7 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
             )}
             {status && (
               <motion.div 
+                key="stat"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
@@ -486,84 +575,137 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
           </AnimatePresence>
 
           <div className="space-y-4 relative z-10">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Telefone</label>
-              <div className="relative group/input">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold group-focus-within/input:text-gold transition-colors opacity-40">
-                  <Phone className="w-5 h-5" />
-                </div>
-                <input 
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="258..."
-                  disabled={isLoading}
-                  className="w-full bg-card-bg/40 border border-white/10 rounded-2xl py-4.5 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 focus:bg-card-bg/60 transition-all font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Senha</label>
-              <div className="relative group/input">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold group-focus-within/input:text-gold transition-colors opacity-40">
-                  <Lock className="w-5 h-5" />
-                </div>
-                <input 
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  disabled={isLoading}
-                  className="w-full bg-card-bg/40 border border-white/10 rounded-2xl py-4.5 pl-12 pr-12 text-white focus:outline-none focus:border-gold/50 focus:bg-card-bg/60 transition-all"
-                />
-                <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-gold transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {!isLogin && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-4"
-              >
+            {authView !== 'forgot' ? (
+              <>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Confirmar Senha</label>
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Telefone</label>
                   <div className="relative group/input">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold group-focus-within/input:text-gold transition-colors opacity-40">
-                      <ShieldCheck className="w-5 h-5" />
+                      <Phone className="w-5 h-5" />
                     </div>
                     <input 
-                      type={showPassword ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="258..."
                       disabled={isLoading}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4.5 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 focus:bg-white/10 transition-all"
+                      className="w-full bg-card-bg/40 border border-white/10 rounded-2xl py-4.5 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 focus:bg-card-bg/60 transition-all font-mono"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gold/60 uppercase tracking-widest ml-1">Código de Convite (Opcional)</label>
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Senha</label>
                   <div className="relative group/input">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold group-focus-within/input:text-gold transition-colors opacity-40">
-                      <Ticket className="w-5 h-5" />
+                      <Lock className="w-5 h-5" />
+                    </div>
+                    <input 
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      disabled={isLoading}
+                      className="w-full bg-card-bg/40 border border-white/10 rounded-2xl py-4.5 pl-12 pr-12 text-white focus:outline-none focus:border-gold/50 focus:bg-card-bg/60 transition-all"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-gold transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {authView === 'login' && (
+                    <div className="flex justify-end">
+                      <button 
+                        type="button"
+                        onClick={() => setAuthView('forgot')}
+                        className="text-[10px] font-black text-gold/60 uppercase tracking-widest hover:text-gold transition-colors mt-1"
+                      >
+                        Esqueceu a sua senha?
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {authView === 'register' && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-4"
+                  >
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Confirmar Senha</label>
+                      <div className="relative group/input">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold group-focus-within/input:text-gold transition-colors opacity-40">
+                          <ShieldCheck className="w-5 h-5" />
+                        </div>
+                        <input 
+                          type={showPassword ? "text" : "password"}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="••••••••"
+                          disabled={isLoading}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4.5 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 focus:bg-white/10 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gold/60 uppercase tracking-widest ml-1">Código de Convite (Opcional)</label>
+                      <div className="relative group/input">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold group-focus-within/input:text-gold transition-colors opacity-40">
+                          <Ticket className="w-5 h-5" />
+                        </div>
+                        <input 
+                          type="text"
+                          value={inviteCodeInput}
+                          onChange={(e) => setInviteCodeInput(e.target.value.toUpperCase())}
+                          placeholder="MOZA2026"
+                          disabled={isLoading}
+                          className="w-full bg-gold/5 border border-gold/10 rounded-2xl py-4.5 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 focus:bg-gold/10 transition-all font-mono placeholder:text-white/20"
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </>
+            ) : (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">E-mail ou Telefone de Cadastro</label>
+                  <div className="relative group/input">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gold group-focus-within/input:text-gold transition-colors opacity-40">
+                      <User className="w-5 h-5" />
                     </div>
                     <input 
                       type="text"
-                      value={inviteCodeInput}
-                      onChange={(e) => setInviteCodeInput(e.target.value.toUpperCase())}
-                      placeholder="MOZA2026"
+                      value={emailForReset}
+                      onChange={(e) => setEmailForReset(e.target.value)}
+                      placeholder="exemplo@gmail.com ou 84..."
                       disabled={isLoading}
-                      className="w-full bg-gold/5 border border-gold/10 rounded-2xl py-4.5 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 focus:bg-gold/10 transition-all font-mono placeholder:text-white/20"
+                      className="w-full bg-card-bg/40 border border-white/10 rounded-2xl py-4.5 pl-12 pr-4 text-white focus:outline-none focus:border-gold/50 focus:bg-card-bg/60 transition-all"
                     />
+                  </div>
+                  <div className="space-y-3 px-1 mt-4">
+                    <p className="text-[9px] text-white/30 font-medium leading-relaxed">
+                      Se você se registrou com <span className="text-gold/40">Número de Telefone</span>, por favor contacte o suporte oficial para redefinir a sua senha com segurança.
+                    </p>
+                    
+                    <a 
+                      href="https://wa.me/258848778905" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-[9px] font-black text-green-500 uppercase tracking-widest hover:text-green-400 transition-colors bg-green-500/5 px-4 py-2 rounded-full border border-green-500/10"
+                    >
+                      <Phone className="w-3 h-3" />
+                      Pedir Apoio no WhatsApp
+                    </a>
                   </div>
                 </div>
               </motion.div>
@@ -579,21 +721,79 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <>
-                <span>{isLogin ? 'Aceder Agora' : 'Criar Conta Premium'}</span>
+                <span>
+                  {authView === 'login' ? 'Aceder Agora' : authView === 'register' ? 'Criar Conta Premium' : 'Enviar Link de Redefinição'}
+                </span>
                 <ChevronRight className="w-4 h-4" />
               </>
             )}
           </button>
+          
+          {/* OR Divider if not in forgot view or as common separator */}
+          <div className="flex items-center gap-4 py-2">
+            <div className="flex-1 h-[1px] bg-white/5" />
+            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">OU</span>
+            <div className="flex-1 h-[1px] bg-white/5" />
+          </div>
+
+          {/* Back to Login if in forgot view, otherwise Google Login */}
+          {authView === 'forgot' ? (
+            <button 
+              type="button"
+              onClick={() => setAuthView('login')}
+              className="w-full bg-white/5 border border-white/10 py-5 rounded-[22px] text-white font-black uppercase tracking-[0.2em] text-xs hover:bg-white/10 active:scale-98 transition-all flex items-center justify-center gap-3"
+            >
+              <span>Voltar ao Login</span>
+            </button>
+          ) : (
+            <button 
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              className="w-full bg-white/5 border border-white/10 py-5 rounded-[22px] text-white font-black uppercase tracking-[0.2em] text-xs hover:bg-white/10 active:scale-98 transition-all flex items-center justify-center gap-3"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path
+                  fill="currentColor"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="currentColor"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="currentColor"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
+                />
+                <path
+                  fill="currentColor"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
+              </svg>
+              <span>Continuar com Google</span>
+            </button>
+          )}
         </motion.form>
 
         <div className="text-center pt-2 space-y-4">
           <button 
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={() => setAuthView(authView === 'login' ? 'register' : 'login')}
             className="text-white/40 text-[11px] font-black hover:text-gold transition-colors uppercase tracking-[0.25em] relative group"
           >
-            <span>{isLogin ? 'Não tem conta? Registe-se' : 'Já é membro? Entrar agora'}</span>
-            <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-gold group-hover:w-full transition-all duration-300" />
+            <span>{authView === 'login' ? 'Não tem conta? Registe-se' : authView === 'register' ? 'Já é membro? Entrar agora' : ''}</span>
+            {authView !== 'forgot' && <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-gold group-hover:w-full transition-all duration-300" />}
           </button>
+
+          {onBack && (
+            <div className="pt-2">
+              <button 
+                onClick={onBack}
+                className="text-gold/60 text-[9px] font-black hover:text-gold transition-colors uppercase tracking-[0.3em] bg-gold/5 px-6 py-3 rounded-full border border-gold/10"
+              >
+                ← Voltar à Manutenção
+              </button>
+            </div>
+          )}
 
           <div className="pt-4 border-t border-white/5">
             <p className="text-[9px] text-white/20 font-black uppercase tracking-[0.3em]">
@@ -607,31 +807,70 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
 };
 
 // --- Home Banner Component ---
-const HomeBanner = ({ onBoxClick, title, highlight }: { onBoxClick: () => void, title?: string, highlight?: string }) => {
+const HomeBanner = ({ onBoxClick, appSettings }: { onBoxClick: () => void, appSettings: any }) => {
   const banners = [
     {
-      title: title || "Investimento Seguro",
-      subtitle: highlight || "Capital Protegido",
+      title: "Promoção YouTube",
+      subtitle: "Inscreva-se e Ganhe",
+      image: "",
+      icon: Youtube,
+      color: "from-red-600/20 via-red-600/5 to-transparent",
+      text: "Ganhe 15% de bónus nos seus investimentos ao subscrever o nosso canal.",
+      action: () => window.open('https://youtube.com/@mozainvest?si=XeLT5nrj9TbxnvIW', '_blank')
+    },
+    {
+      title: appSettings.banner1_title || appSettings.bannerText || "Investimento Seguro",
+      subtitle: appSettings.banner1_highlight || appSettings.bannerHighlight || "Capital Protegido",
+      image: appSettings.banner1_image || "",
       icon: Shield,
       color: "from-gold/20 via-gold/5 to-transparent",
-      text: "Segurança máxima para o seu património.",
+      text: appSettings.banner1_text || "Segurança máxima para o seu património.",
       action: null
     },
     {
-      title: "Bónus de Convite",
-      subtitle: "Exclusivo VIP GOLD",
+      title: appSettings.banner2_title || "Bónus de Convite",
+      subtitle: appSettings.banner2_highlight || "Exclusivo VIP GOLD",
+      image: appSettings.banner2_image || "",
       icon: Sparkles,
       color: "from-blue-500/20 via-blue-500/5 to-transparent",
-      text: "Ganhe mais expandindo a sua rede.",
+      text: appSettings.banner2_text || "Ganhe mais expandindo a sua rede.",
       action: null
     },
     {
-      title: "Sorte Diária",
-      subtitle: "Caixa Sorte MOZA",
+      title: appSettings.banner3_title || "Sorte Diária",
+      subtitle: appSettings.banner3_highlight || "Caixa Sorte MOZA",
+      image: appSettings.banner3_image || "",
       icon: Gift,
       color: "from-indigo-500/20 via-purple-500/5 to-transparent",
-      text: "Abra agora e receba bónus aleatórios.",
+      text: appSettings.banner3_text || "Abra agora e receba bónus aleatórios.",
       action: onBoxClick
+    },
+    {
+      title: appSettings.banner4_title || "Mercado Global",
+      subtitle: appSettings.banner4_highlight || "Novas Oportunidades",
+      image: appSettings.banner4_image || "",
+      icon: Globe,
+      color: "from-emerald-500/20 via-emerald-500/5 to-transparent",
+      text: appSettings.banner4_text || "Acompanhe as tendências do mercado em tempo real.",
+      action: null
+    },
+    {
+      title: appSettings.banner5_title || "Suporte VIP",
+      subtitle: appSettings.banner5_highlight || "Atendimento 24/7",
+      image: appSettings.banner5_image || "",
+      icon: MessageSquare,
+      color: "from-amber-500/20 via-amber-500/5 to-transparent",
+      text: appSettings.banner5_text || "Nossa equipa está pronta para o ajudar.",
+      action: null
+    },
+    {
+      title: appSettings.banner6_title || "Levantamentos Rápidos",
+      subtitle: appSettings.banner6_highlight || "Entre 6 a 48 Horas",
+      image: appSettings.banner6_image || "",
+      icon: Zap,
+      color: "from-cyan-500/20 via-cyan-500/5 to-transparent",
+      text: appSettings.banner6_text || "Processamento acelerado para todos os níveis.",
+      action: null
     }
   ];
 
@@ -657,15 +896,28 @@ const HomeBanner = ({ onBoxClick, title, highlight }: { onBoxClick: () => void, 
           exit={{ opacity: 0, x: -20 }}
           className={`absolute inset-0 bg-gradient-to-br ${banners[current].color} p-8 flex flex-col justify-center gap-2`}
         >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-card-bg/40 backdrop-blur-md flex items-center justify-center border border-white/10">
-              {React.createElement(banners[current].icon, { className: "w-5 h-5 text-gold" })}
+          {banners[current].image && (
+            <div className="absolute inset-0 z-0">
+              <img 
+                src={banners[current].image} 
+                alt="" 
+                className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
             </div>
-            <span className="text-[10px] font-black text-gold uppercase tracking-[0.4em]">{banners[current].title}</span>
-          </div>
-          <div className="space-y-0.5">
-            <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-none">{banners[current].subtitle}</h3>
-            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest leading-loose">{banners[current].text}</p>
+          )}
+          <div className="relative z-10 flex flex-col justify-center h-full gap-2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-card-bg/40 backdrop-blur-md flex items-center justify-center border border-white/10">
+                {React.createElement(banners[current].icon, { className: "w-5 h-5 text-gold" })}
+              </div>
+              <span className="text-[10px] font-black text-gold uppercase tracking-[0.4em]">{banners[current].title}</span>
+            </div>
+            <div className="space-y-0.5">
+              <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-none">{banners[current].subtitle}</h3>
+              <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest leading-loose">{banners[current].text}</p>
+            </div>
           </div>
           
           <div className="absolute bottom-6 left-8 flex gap-1.5">
@@ -768,7 +1020,7 @@ const VipCard = ({ level, status, onActivate }: { level: any, status: string, on
         </div>
       </div>
       <div className="text-right">
-        <div className={`text-2xl font-black font-mono leading-none ${status === 'active' ? 'text-gold' : 'text-white'}`}>MZN {level.dailyReturn.toLocaleString()}</div>
+        <div className={`text-2xl font-black font-mono leading-none ${status === 'active' ? 'text-gold' : 'text-white'}`}>MZN {level.dailyReturn?.toLocaleString() ?? '0'}</div>
         <div className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mt-1.5 opacity-60">Retorno Diário</div>
       </div>
     </div>
@@ -790,7 +1042,7 @@ const VipCard = ({ level, status, onActivate }: { level: any, status: string, on
     <div className="relative z-10 pt-2 flex items-center justify-between">
       <div>
         <p className="text-[10px] text-white/40 font-black uppercase tracking-widest opacity-60">Investimento</p>
-        <p className="text-lg font-black text-white font-mono">MZN {level.investment.toLocaleString()}</p>
+        <p className="text-lg font-black text-white font-mono">MZN {level.investment?.toLocaleString() ?? '0'}</p>
       </div>
        {status !== 'active' ? (
          <motion.button 
@@ -816,12 +1068,15 @@ const VipCard = ({ level, status, onActivate }: { level: any, status: string, on
 );
 
 // --- Financial Overlays ---
-const DepositOverlay = ({ onConfirm, settings }: { onConfirm: (amt: number, method: string, proofUrl?: string) => void, settings: any }) => {
+const DepositOverlay = ({ onConfirm, settings }: { onConfirm: (amt: number, method: string, proofUrl?: string, transactionId?: string) => void, settings: any, key?: any }) => {
   const { data: initialAmount, closeOverlay } = useOverlay();
+  const [step, setStep] = useState(1);
   const [amount, setAmount] = useState(initialAmount ? initialAmount.toString() : '');
   const [method, setMethod] = useState('mpesa');
   const [proof, setProof] = useState<string | null>(null);
+  const [transactionId, setTransactionId] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const getMethodData = (methodId: string) => {
     if (methodId === 'mpesa') return { number: settings.mpesaNumber, holder: settings.mpesaHolder };
@@ -842,156 +1097,267 @@ const DepositOverlay = ({ onConfirm, settings }: { onConfirm: (amt: number, meth
       reader.onloadend = () => {
         setProof(reader.result as string);
         setIsUploading(false);
+        setStep(3); // Move to final step after upload
       };
       reader.readAsDataURL(file);
     }
   };
 
   const currentMethodData = getMethodData(method);
+  const canConfirm = amount && Number(amount) >= 100 && (proof || transactionId) && !isUploading;
 
-  const canConfirm = amount && Number(amount) >= 100 && proof && !isUploading;
+  const handleCopy = () => {
+    navigator.clipboard.writeText(currentMethodData?.number || '');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <motion.div 
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col p-6 overflow-y-auto pb-20"
+      initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+      className="fixed inset-0 z-[2000] bg-[#03060b] flex flex-col overflow-hidden"
     >
-      <div className="flex justify-between items-center mb-10">
-        <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Recarregar</h2>
-        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
+      {/* Header */}
+      <div className="px-6 py-8 flex justify-between items-center bg-card-bg/20 backdrop-blur-3xl border-b border-white/5">
+        <div className="flex flex-col">
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Recarregar</h2>
+          <div className="flex items-center gap-2 mt-1">
+            <div className={`h-1 w-4 rounded-full transition-all duration-500 ${step >= 1 ? 'bg-gold' : 'bg-white/10'}`} />
+            <div className={`h-1 w-4 rounded-full transition-all duration-500 ${step >= 2 ? 'bg-gold' : 'bg-white/10'}`} />
+            <div className={`h-1 w-4 rounded-full transition-all duration-500 ${step >= 3 ? 'bg-gold' : 'bg-white/10'}`} />
+          </div>
+        </div>
+        <button 
+          onClick={closeOverlay} 
+          className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/40 hover:bg-red-500/10 hover:text-red-500 transition-all border border-white/5"
+        >
+          <XCircle className="w-6 h-6" />
+        </button>
       </div>
 
-      <div className="space-y-8 max-w-lg mx-auto w-full">
-        <div>
-          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4 text-center">1. Escolha o Método</label>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            {FINANCIAL_METHODS.map(m => (
-              <button 
-                key={m.id}
-                onClick={() => setMethod(m.id)}
-                className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-2 ${method === m.id ? 'border-gold bg-gold/10 shadow-lg shadow-gold/10' : 'border-white/5 bg-card-bg/60 backdrop-blur-xl shadow-sm'}`}
-              >
-                <div className={`w-3 h-3 rounded-full ${method === m.id ? 'bg-gold' : 'bg-white/10'}`} />
-                <span className={`text-xs font-black uppercase tracking-widest ${method === m.id ? 'text-gold' : 'text-white/40'}`}>{m.name}</span>
-              </button>
-            ))}
-          </div>
-
-        <AnimatePresence mode="wait">
-            {method && (
+      <div className="flex-1 overflow-y-auto p-6 pb-32">
+        <div className="max-w-lg mx-auto space-y-8">
+          
+          <AnimatePresence mode="wait">
+            {step === 1 && (
               <motion.div 
-                key={method}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="bg-card-bg border border-gold/30 p-6 rounded-[32px] space-y-3 relative overflow-hidden shadow-2xl"
+                key="step1"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="space-y-6"
               >
-                <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
-                <div className="flex justify-between items-center group/item">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-black text-gold uppercase tracking-widest">Enviar para:</span>
-                    <p className="text-2xl font-black text-white font-mono tracking-widest leading-none">
-                      {currentMethodData?.number}
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(currentMethodData?.number || '');
-                      alert('Copiado para a área de transferência!');
-                    }}
-                    className="w-12 h-12 rounded-2xl bg-gold/20 flex items-center justify-center text-gold border border-gold/30 active:scale-90 transition-all hover:bg-gold hover:text-white"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                  </button>
+                <div className="text-center space-y-2">
+                  <span className="text-[10px] font-black text-gold uppercase tracking-[0.4em]">Passo 01</span>
+                  <h3 className="text-xl font-black text-white uppercase tracking-tight">Valor & Método</h3>
                 </div>
-                <div className="flex flex-col gap-1 pt-2 border-t border-white/5">
-                  <span className="text-[10px] font-black text-gold/60 uppercase tracking-widest">Nome do Titular:</span>
-                  <p className="text-sm font-black text-white uppercase tracking-tight">
-                    {currentMethodData?.holder}
-                  </p>
+
+                <div className="bg-white/5 p-8 rounded-[40px] border border-white/5 shadow-2xl relative overflow-hidden group">
+                   <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
+                   <label className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] block text-center mb-4">Quantia a Depositar (MZN)</label>
+                   <input 
+                    type="number"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="Mínimo 100"
+                    className="w-full bg-transparent text-center text-5xl font-black text-white font-mono focus:outline-none placeholder:text-white/5"
+                   />
+                   <div className="flex justify-center flex-wrap gap-2 mt-6">
+                      {[100, 500, 1000, 5000].map(v => (
+                        <button 
+                          key={v}
+                          onClick={() => setAmount(v.toString())}
+                          className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all ${amount === v.toString() ? 'bg-gold text-black' : 'bg-white/5 text-white/40 border border-white/5 hover:bg-white/10'}`}
+                        >
+                          MZN {v}
+                        </button>
+                      ))}
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {FINANCIAL_METHODS.map(m => (
+                    <button 
+                      key={m.id}
+                      onClick={() => setMethod(m.id)}
+                      className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-3 relative overflow-hidden group ${method === m.id ? 'border-gold bg-gold/10 shadow-xl' : 'border-white/5 bg-white/5 hover:bg-white/10'}`}
+                    >
+                      {method === m.id && <div className="absolute top-0 right-0 p-2"><CheckCircle2 className="w-3 h-3 text-gold" /></div>}
+                      <div className={`p-3 rounded-2xl ${m.color} bg-opacity-20`}>
+                        {m.id === 'bank' ? <Landmark className="w-5 h-5 text-gold" /> : <Phone className="w-5 h-5 text-white" />}
+                      </div>
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${method === m.id ? 'text-gold' : 'text-white/40'}`}>{m.name}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <button 
+                  onClick={() => amount && Number(amount) >= 100 && setStep(2)}
+                  disabled={!amount || Number(amount) < 100}
+                  className="w-full gold-gradient py-6 rounded-[32px] text-white font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-gold/20 disabled:opacity-20 flex items-center justify-center gap-3"
+                >
+                  Continuar para Pagamento
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </motion.div>
+            )}
+
+            {step === 2 && (
+              <motion.div 
+                key="step2"
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                className="space-y-6"
+              >
+                <div className="text-center space-y-2">
+                  <span className="text-[10px] font-black text-gold uppercase tracking-[0.4em]">Passo 02</span>
+                  <h3 className="text-xl font-black text-white uppercase tracking-tight">Efectuar Transferência</h3>
+                </div>
+
+                <div className="bg-white/5 border-2 border-gold/40 p-8 rounded-[40px] space-y-6 relative overflow-hidden shadow-2xl">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-gold uppercase tracking-[0.3em]">Número de Conta</span>
+                      <p className="text-3xl font-black text-white font-mono tracking-wider">{currentMethodData?.number}</p>
+                    </div>
+                    <button 
+                      onClick={handleCopy}
+                      className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 transition-all ${copied ? 'bg-green-500 border-green-400 text-white' : 'bg-gold/10 border-gold/30 text-gold hover:bg-gold hover:text-black'}`}
+                    >
+                      {copied ? <CheckCircle2 className="w-6 h-6" /> : <ExternalLink className="w-6 h-6" />}
+                    </button>
+                  </div>
+                  
+                  <div className="pt-6 border-t border-white/5 space-y-1">
+                    <span className="text-[9px] font-black text-gold/60 uppercase tracking-[0.3em]">Beneficiário</span>
+                    <p className="text-sm font-black text-white uppercase tracking-widest">{currentMethodData?.holder}</p>
+                  </div>
+
+                  <div className="bg-white/5 rounded-2xl p-4 flex items-center gap-4 border border-white/5">
+                     <AlertCircle className="w-5 h-5 text-gold animate-pulse" />
+                     <p className="text-[9px] font-bold text-white/60 leading-relaxed uppercase tracking-tighter">
+                       Por favor, envie exactamente <span className="text-white font-black">MZN {amount}</span> para o número acima.
+                     </p>
+                  </div>
+                </div>
+
+                <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-4">
+                  <h4 className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Instruções de Confirmação</h4>
+                  <div className="space-y-3">
+                    {[
+                      "Faça a transferência via USSD ou App",
+                      "Guarde o SMS de confirmação",
+                      "Tire um Screenshot ou anote o ID da transação",
+                    ].map((inst, idx) => (
+                      <div key={idx} className="flex gap-3 text-[10px] font-bold text-white/60">
+                        <span className="text-gold">0{idx + 1}.</span>
+                        <span className="uppercase tracking-widest">{inst}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button onClick={() => setStep(1)} className="flex-1 bg-white/5 border border-white/5 py-6 rounded-[32px] text-white/40 font-black uppercase tracking-widest text-[10px]">Voltar</button>
+                  <button onClick={() => setStep(3)} className="flex-[2] gold-gradient py-6 rounded-[32px] text-white font-black uppercase tracking-widest text-[10px] shadow-xl shadow-gold/20">Já fiz o envio</button>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 3 && (
+              <motion.div 
+                key="step3"
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                className="space-y-6"
+              >
+                <div className="text-center space-y-2">
+                  <span className="text-[10px] font-black text-gold uppercase tracking-[0.4em]">Passo 03</span>
+                  <h3 className="text-xl font-black text-white uppercase tracking-tight">Confirmar Envio</h3>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">ID da Transação (Referência do SMS)</label>
+                    <input 
+                      value={transactionId}
+                      onChange={(e) => setTransactionId(e.target.value)}
+                      placeholder="Ex: 5JK098A..."
+                      className="w-full bg-white/5 border border-white/10 rounded-[28px] p-6 text-xl font-black text-white font-mono focus:border-gold outline-none transition-all placeholder:text-white/5"
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="proof-upload" />
+                    <label 
+                      htmlFor="proof-upload"
+                      className={`w-full aspect-video rounded-[40px] border-2 border-dashed flex flex-col items-center justify-center gap-4 cursor-pointer transition-all overflow-hidden ${proof ? 'border-gold bg-gold/5' : 'border-white/10 bg-white/5 hover:border-gold/30'}`}
+                    >
+                      {isUploading ? (
+                        <div className="flex flex-col items-center gap-3">
+                          <RefreshCcw className="w-8 h-8 text-gold animate-spin" />
+                          <span className="text-[10px] font-black text-gold uppercase tracking-[0.4em]">Upload...</span>
+                        </div>
+                      ) : proof ? (
+                        <div className="relative w-full h-full group">
+                          <img src={proof} alt="Comprovativo" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
+                            <Plus className="w-8 h-8 text-white" />
+                            <span className="text-[10px] font-black text-white uppercase tracking-widest">Toque para Substituir</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-4 text-center px-8">
+                          <div className="w-16 h-16 rounded-3xl bg-gold/10 flex items-center justify-center text-gold border border-gold/20">
+                            <Plus className="w-8 h-8" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Upload do Screenshot</p>
+                            <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Opcional mas recomendado para activação instantânea</p>
+                          </div>
+                        </div>
+                      )}
+                    </label>
+                  </div>
+                </div>
+
+                <div className="bg-gold/5 border border-gold/10 p-6 rounded-[32px]">
+                   <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                     <span className="text-white/40">Total a Receber</span>
+                     <span className="text-gold text-lg">MZN {amount}</span>
+                   </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button onClick={() => setStep(2)} className="flex-1 bg-white/5 border border-white/5 py-6 rounded-[32px] text-white/40 font-black uppercase tracking-widest text-[10px]">Voltar</button>
+                  <button 
+                    onClick={() => onConfirm(Number(amount), method, proof || '', transactionId)}
+                    disabled={!canConfirm}
+                    className="flex-[2] gold-gradient py-6 rounded-[32px] text-white font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-gold/20 disabled:opacity-20"
+                  >
+                    FINALIZAR RECARGA
+                  </button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
 
-        <div>
-          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4 text-center">2. Valor Enviado (MZN)</label>
-          <input 
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="1000"
-            className="w-full bg-card-bg border border-white/10 rounded-[28px] p-8 text-center text-4xl font-black text-white font-mono focus:border-gold outline-none transition-all shadow-2xl"
-          />
+          {/* Trust badges/Info */}
+          {step === 3 && (
+            <p className="text-[8px] font-bold text-center text-white/20 uppercase tracking-[0.3em] px-10 leading-loose">
+              O seu depósito será processado automaticamente assim que a rede confirmar a transação. Tempo médio: <span className="text-gold">15-30 min</span>.
+            </p>
+          )}
         </div>
-
-        <div>
-           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4 text-center">3. Carregar Comprovativo</label>
-           <div className="relative">
-              <input 
-                type="file" 
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden" 
-                id="proof-upload"
-              />
-              <label 
-                htmlFor="proof-upload"
-                className={`w-full aspect-video rounded-[32px] border-2 border-dashed flex flex-col items-center justify-center gap-4 cursor-pointer transition-all overflow-hidden ${proof ? 'border-gold bg-gold/5' : 'border-white/10 bg-card-bg hover:border-gold/30'}`}
-              >
-                {isUploading ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-8 h-8 border-4 border-gold border-t-transparent rounded-full animate-spin" />
-                    <span className="text-[10px] font-black text-gold uppercase tracking-widest">A processar...</span>
-                  </div>
-                ) : proof ? (
-                  <div className="relative w-full h-full">
-                    <img src={proof} alt="Comprovativo" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                      <span className="text-xs font-black text-white uppercase tracking-widest">Trocar Imagem</span>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-white/20">
-                      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs font-black text-white uppercase tracking-widest">Clique para Carregar</p>
-                      <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mt-1">Screenshot ou foto do recibo</p>
-                    </div>
-                  </>
-                )}
-              </label>
-           </div>
-        </div>
-
-        <div className="bg-card-bg border border-white/10 p-6 rounded-[32px] space-y-2 shadow-xl">
-          <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-            <span className="text-white/40">Processamento</span>
-            <span className="text-gold">{FINANCIAL_METHODS.find(m => m.id === method)?.delay}</span>
-          </div>
-          <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-            <span className="text-white/40">Taxa de Rede</span>
-            <span className="text-gold">MZN 0.00</span>
-          </div>
-        </div>
-
-        <button 
-          onClick={() => onConfirm(Number(amount), method, proof || '')}
-          disabled={!canConfirm}
-          className="w-full gold-gradient py-6 rounded-[32px] text-white font-black uppercase tracking-widest shadow-xl shadow-gold/20 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30 flex items-center justify-center gap-3"
-        >
-          {isUploading && <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-          <span>Confirmar Depósito</span>
-        </button>
       </div>
     </motion.div>
   );
 };
 
-const WithdrawOverlay = ({ balance, onConfirm }: { balance: number, onConfirm: (amt: number, method: string) => void }) => {
+
+const WithdrawOverlay = ({ balance, onConfirm }: { balance: number, onConfirm: (amt: number, method: string) => void, key?: any }) => {
   const { closeOverlay } = useOverlay();
   const [amount, setAmount] = useState('');
   const [phone, setPhone] = useState('258');
@@ -1010,7 +1376,7 @@ const WithdrawOverlay = ({ balance, onConfirm }: { balance: number, onConfirm: (
       <div className="space-y-8">
         <div className="bg-card-bg p-8 rounded-[40px] border border-white/5 text-center shadow-2xl">
           <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2 font-mono">Disponível para Saque</p>
-          <h3 className="text-4xl font-black text-white font-mono leading-none">MZN {balance.toLocaleString()}</h3>
+          <h3 className="text-4xl font-black text-white font-mono leading-none">MZN {(balance || 0).toLocaleString()}</h3>
         </div>
 
         <div>
@@ -1059,14 +1425,14 @@ const WithdrawOverlay = ({ balance, onConfirm }: { balance: number, onConfirm: (
         </button>
         
         <p className="text-[9px] text-white/40 text-center font-bold px-10 leading-relaxed uppercase tracking-widest opacity-60">
-          O processamento pode levar de 5 a 30 minutos dependendo da sua operadora.
+          O processamento pode levar de 6 a 48 Horas dependendo da sua operadora.
         </p>
       </div>
     </motion.div>
   );
 };
 
-const RecordsOverlay = ({ transactions }: { transactions: Transaction[] }) => {
+const RecordsOverlay = ({ transactions }: { transactions: Transaction[], key?: any }) => {
   const { closeOverlay } = useOverlay();
   return (
     <motion.div 
@@ -1097,7 +1463,7 @@ const RecordsOverlay = ({ transactions }: { transactions: Transaction[] }) => {
           </div>
           <div className="text-right">
             <div className={`font-black font-mono ${tx.type === 'deposit' || tx.type === 'reward' ? 'text-green-500' : 'text-red-500'}`}>
-              {tx.type === 'deposit' || tx.type === 'reward' ? '+' : '-'} {tx.amount.toLocaleString()}
+              {tx.type === 'deposit' || tx.type === 'reward' ? '+' : '-'} {(tx.amount || 0).toLocaleString()}
             </div>
             <div className={`text-[9px] font-black uppercase tracking-widest mt-1 ${tx.status === 'completed' ? 'text-green-500/50' : 'text-gold'}`}>
               {tx.status === 'completed' ? 'Concluído' : tx.status === 'pending' ? 'Pendente' : 'Falhou'}
@@ -1117,90 +1483,185 @@ const RecordsOverlay = ({ transactions }: { transactions: Transaction[] }) => {
   );
 };
 
-const LuckyBoxOverlay = ({ onWin }: { onWin: (amt: number) => void }) => {
+const LuckyBoxOverlay = ({ onWin }: { onWin: (amt: number) => void, key?: any }) => {
   const { closeOverlay } = useOverlay();
   const [opening, setOpening] = useState(false);
   const [wonAmount, setWonAmount] = useState<number | null>(null);
 
   const handleOpen = () => {
     setOpening(true);
+    
+    // Initial burst during opening
+    const end = Date.now() + 1500;
+    const frame = () => {
+      if (Date.now() > end) return;
+      confetti({
+        particleCount: 2,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: ['#FFD700', '#B8860B']
+      });
+      confetti({
+        particleCount: 2,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: ['#FFD700', '#B8860B']
+      });
+      requestAnimationFrame(frame);
+    };
+    frame();
+
     setTimeout(() => {
       const win = Math.floor(Math.random() * 50) + 5;
       setWonAmount(win);
       onWin(win);
       setOpening(false);
+      
+      // Explosion on win
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#FFD700', '#FFFFFF', '#B8860B', '#FFEC8B'],
+        scalar: 1.2,
+      });
     }, 2000);
   };
 
   return (
     <motion.div 
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col items-center justify-center p-6"
+      className="fixed inset-0 z-[2000] bg-dark-bg/95 backdrop-blur-xl flex flex-col items-center justify-center p-6"
     >
-      <button onClick={closeOverlay} className="absolute top-8 right-8 w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40 font-black">✕</button>
+      <button onClick={closeOverlay} className="absolute top-8 right-8 w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40 font-black hover:bg-white/5 transition-colors">✕</button>
       
       <div className="text-center space-y-12 max-w-xs w-full">
-        <div>
-          <h2 className="text-4xl font-black text-gold uppercase tracking-tighter mb-2 italic">Caixa de Sorte</h2>
-          <p className="text-xs text-white/40 font-bold tracking-widest uppercase px-4 leading-relaxed">Tente a sua sorte e ganha prémios diários em numerário</p>
-        </div>
+        <motion.div
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+        >
+          <h2 className="text-5xl font-black text-gold uppercase tracking-tighter mb-2 italic drop-shadow-2xl">Moza Box</h2>
+          <p className="text-[10px] text-white/40 font-black tracking-[0.3em] uppercase px-4 leading-relaxed">Prêmios instantâneos em numerário</p>
+        </motion.div>
 
         <div className="relative aspect-square w-full flex items-center justify-center">
-          <motion.div 
-            animate={opening ? {
-              scale: [1, 1.1, 1],
-              rotate: [0, -5, 5, -5, 5, 0],
-            } : {}}
-            transition={{ repeat: opening ? Infinity : 0, duration: 0.5 }}
-            className={`w-48 h-48 rounded-[48px] gold-gradient flex items-center justify-center shadow-gold-glow relative z-10 ${wonAmount ? 'opacity-0 scale-0' : ''} transition-all duration-500`}
-          >
-            <Gift className="w-24 h-24 text-white" />
-          </motion.div>
-
-          <AnimatePresence>
-            {wonAmount && (
+          <AnimatePresence mode="wait">
+            {!wonAmount ? (
               <motion.div 
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="absolute inset-0 flex flex-col items-center justify-center"
+                key="box"
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ 
+                  scale: 1, 
+                  opacity: 1,
+                  rotate: opening ? [0, -10, 10, -10, 10, 0] : 0,
+                  y: opening ? [0, -20, 0] : 0
+                }}
+                exit={{ scale: 1.5, opacity: 0, filter: 'blur(20px)' }}
+                transition={{ 
+                  rotate: { repeat: opening ? Infinity : 0, duration: 0.3 },
+                  y: { repeat: opening ? Infinity : 0, duration: 0.4 },
+                  duration: 0.5
+                }}
+                className="relative cursor-pointer"
+                onClick={!opening ? handleOpen : undefined}
               >
-                <motion.div 
-                  animate={{ y: [0, -20, 0] }}
-                  transition={{ repeat: Infinity, duration: 2 }}
-                  className="text-7xl font-black text-gold font-mono mb-4"
+                <div className="absolute inset-0 bg-gold/40 blur-[80px] rounded-full animate-pulse" />
+                <div className="relative w-56 h-56 rounded-[56px] gold-gradient flex items-center justify-center shadow-[0_0_100px_rgba(212,175,55,0.4)] border-4 border-white/20">
+                  <Gift className="w-28 h-28 text-white drop-shadow-lg" />
+                  
+                  {/* Decorative Sparkles */}
+                  <motion.div 
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="absolute -top-4 -right-4"
+                  >
+                    <Sparkles className="w-12 h-12 text-gold" />
+                  </motion.div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="reward"
+                initial={{ scale: 0.5, opacity: 0, y: 50 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                className="flex flex-col items-center justify-center"
+              >
+                <motion.div
+                  animate={{ 
+                    scale: [1, 1.05, 1],
+                    rotate: [-1, 1, -1]
+                  }}
+                  transition={{ repeat: Infinity, duration: 3 }}
+                  className="relative"
                 >
-                  +{wonAmount}
+                  <div className="absolute inset-0 bg-gold/30 blur-[100px] rounded-full" />
+                  <div className="relative bg-card-bg/60 backdrop-blur-2xl border-2 border-gold/30 p-12 rounded-[60px] shadow-2xl flex flex-col items-center gap-2">
+                    <p className="text-[10px] font-black text-gold uppercase tracking-[0.5em] mb-2">Você Ganhou</p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-8xl font-black text-white font-mono tracking-tighter italic">
+                        {wonAmount}
+                      </span>
+                      <span className="text-2xl font-black text-gold uppercase">mzn</span>
+                    </div>
+                  </div>
                 </motion.div>
-                <div className="text-xl font-black uppercase tracking-widest text-white border-b-4 border-gold/30 pb-1">MZN GANHOU!</div>
+                
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="mt-8 flex items-center gap-3 bg-white/5 px-6 py-3 rounded-full border border-white/10"
+                >
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <span className="text-xs font-black text-white/60 uppercase tracking-widest">Creditado no Saldo</span>
+                </motion.div>
               </motion.div>
             )}
           </AnimatePresence>
-
-          <div className="absolute inset-0 bg-gold/5 blur-[100px] rounded-full" />
         </div>
 
-        {!wonAmount ? (
-          <button 
-            onClick={handleOpen}
-            disabled={opening}
-            className="w-full gold-gradient py-6 rounded-[32px] text-white font-black uppercase tracking-widest shadow-xl shadow-gold/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
-          >
-            {opening ? 'ABRINDO...' : 'ABRIR CAIXA'}
-          </button>
-        ) : (
-          <button 
-            onClick={closeOverlay}
-            className="w-full bg-white/5 py-6 rounded-[32px] text-white font-black uppercase tracking-widest border border-white/10 hover:bg-white/10 transition-all shadow-sm"
-          >
-            FECHAR
-          </button>
-        )}
+        <div className="pt-4 h-24">
+          <AnimatePresence mode="wait">
+            {!wonAmount ? (
+              <motion.button 
+                key="btn-open"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                onClick={handleOpen}
+                disabled={opening}
+                className="w-full gold-gradient py-6 rounded-[32px] text-white font-black uppercase tracking-[0.2em] shadow-2xl shadow-gold/30 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 relative overflow-hidden group"
+              >
+                <span className="relative z-10">{opening ? 'PROCESSANDO...' : 'RECLAMAR AGORA'}</span>
+                {opening && (
+                  <motion.div 
+                    className="absolute inset-0 bg-white/20"
+                    animate={{ x: ['-100%', '100%'] }}
+                    transition={{ repeat: Infinity, duration: 1 }}
+                  />
+                )}
+              </motion.button>
+            ) : (
+              <motion.button 
+                key="btn-close"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={closeOverlay}
+                className="w-full bg-white/10 py-6 rounded-[32px] text-white font-black uppercase tracking-[0.2em] border border-white/20 hover:bg-white/20 transition-all shadow-xl"
+              >
+                VOLTAR AO INÍCIO
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </motion.div>
   );
 };
 
-const SupportOverlay = () => {
+const SupportOverlay = ({}: { key?: any }) => {
   const { closeOverlay, openOverlay } = useOverlay();
   return (
     <motion.div 
@@ -1267,10 +1728,11 @@ const SupportOverlay = () => {
         </a>
 
         {[
+          { icon: Youtube, label: "YouTube Oficial", value: "@mozainvest", color: "bg-[#FF0000]", link: "https://youtube.com/@mozainvest?si=XeLT5nrj9TbxnvIW" },
           { icon: Phone, label: "WhatsApp VIP", value: "+258 84 877 8905", color: "bg-[#25D366]", link: "https://wa.me/258848778905" },
           { icon: Users, label: "Grupo Telegram", value: "@MOZA_OFFICIAL", color: "bg-[#0088cc]", link: "https://t.me/MOZA_OFFICIAL" },
         ].map((item, i) => (
-          <a key={i} href={item.link} target="_blank" rel="noopener noreferrer" className="w-full bg-card-bg/40 border border-white/5 p-6 rounded-[32px] flex items-center gap-6 hover:bg-card-bg/60 transition-all text-left shadow-sm">
+          <a key={`sup-item-${i}`} href={item.link} target="_blank" rel="noopener noreferrer" className="w-full bg-card-bg/40 border border-white/5 p-6 rounded-[32px] flex items-center gap-6 hover:bg-card-bg/60 transition-all text-left shadow-sm">
             <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg`}>
               <item.icon className="w-7 h-7" />
             </div>
@@ -1286,7 +1748,7 @@ const SupportOverlay = () => {
   );
 };
 
-const AiHelperOverlay = () => {
+const AiHelperOverlay = ({ appSettings }: { appSettings: any, key?: any }) => {
   const { closeOverlay } = useOverlay();
   const [messages, setMessages] = useState<{ role: 'user' | 'bot', text: string }[]>([]);
   const [input, setInput] = useState('');
@@ -1371,7 +1833,8 @@ const AiHelperOverlay = () => {
     if (!input.trim() || isTyping || !auth.currentUser) return;
 
     const userMsg = input.trim();
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    const newMessages = [...messages, { role: 'user' as const, text: userMsg }];
+    setMessages(newMessages);
     setInput('');
     setIsTyping(true);
     
@@ -1380,22 +1843,55 @@ const AiHelperOverlay = () => {
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      
+      // Map history to Gemini format
+      const history = newMessages.slice(-6).map(m => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        parts: [{ text: m.text }]
+      }));
+
+      const systemPrompt = `Você é o 'MozaBot', o assistente inteligente da MOZA Investimentos.
+Seu objetivo é ajudar investidores moçambicanos a lucrar na plataforma.
+
+CONTEXTO DA PLATAFORMA:
+- Depósitos: M-Pesa (${appSettings.mpesaNumber || 'Indisponível'}, Titular: ${appSettings.mpesaHolder || 'N/A'}) e e-Mola (${appSettings.emolaNumber || 'Indisponível'}, Titular: ${appSettings.emolaHolder || 'N/A'}).
+- Depósito Mínimo: 100 MZN.
+- Saque Mínimo: 200 MZN.
+- Jogos: Mines (Moza Mines) e Caixa Sorte (Lucky Box).
+- VIP: Níveis superiores aumentam ganhos diários e limites de empréstimo.
+- Localização: Moçambique.
+- Moeda: Metical (MZN).
+
+DIRETRIZES DE RESPOSTA:
+1. Use português de Moçambique (natural e acolhedor).
+2. Seja extremamente direto e conciso. Máximo 2 parágrafos curtos.
+3. Se o usuário estiver frustrado, seja empático mas profissional.
+4. NUNCA invente números de conta ou dados que não estejam no contexto acima.
+5. Formate respostas para leitura fácil em dispositivos móveis.
+6. Não use Markdown complexo (evite tabelas). Use listas se necessário.`;
+
       const response = await ai.models.generateContent({ 
         model: "gemini-3-flash-preview",
-        contents: userMsg,
+        contents: history,
         config: {
-          systemInstruction: "Você é um assistente de suporte especializado na plataforma MOZA Investimentos em Moçambique. Ajude os usuários com dúvidas sobre depósitos (via M-Pesa/e-Mola), saques, níveis VIP e como ganhar prémios com a Caixa Sorte. Seja profissional, prestativo e fale português de Moçambique. Mantenha as respostas curtas e diretas. Não use Negrito ou Markdown complexo.",
+          systemInstruction: systemPrompt,
+          temperature: 0.7,
         }
       });
 
-      const botText = response.text || 'Desculpe, tive um problema ao processar sua solicitação.';
+      const botText = response.text || 'Lamento, tive uma pequena falha técnica. Pode repetir a pergunta?';
       
       setMessages(prev => [...prev, { role: 'bot', text: botText }]);
       // Persist bot response
       await saveMessage('bot', botText);
-    } catch (error) {
-      console.error(error);
-      const errorMsg = 'Lamento, não consegui conectar ao serviço de IA agora. Por favor, tente novamente mais tarde.';
+    } catch (error: any) {
+      console.error('AI Error:', error);
+      let errorMsg = 'Lamento, não consegui processar sua mensagem agora.';
+      
+      if (error?.message?.includes('Quota')) {
+        errorMsg = 'O limite de consultas diárias da IA foi atingido. Por favor, tente novamente amanhã ou contacte o suporte via WhatsApp.';
+      }
+      
       setMessages(prev => [...prev, { role: 'bot', text: errorMsg }]);
       await saveMessage('bot', errorMsg);
     } finally {
@@ -1432,15 +1928,39 @@ const AiHelperOverlay = () => {
             <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Carregando Histórico...</p>
           </div>
         ) : (
-          messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] p-5 rounded-[24px] text-sm font-medium leading-relaxed ${
-                m.role === 'user' ? 'gold-gradient text-white rounded-tr-none' : 'bg-card-bg/60 border border-white/5 text-white/90 rounded-tl-none shadow-sm'
-              }`}>
-                {m.text}
+          <>
+            {messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 gap-6 text-center opacity-40">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+                  <Bot className="w-8 h-8" />
+                </div>
+                <div className="space-y-2">
+                  <p className="font-black uppercase tracking-widest text-xs">Olá! Eu sou o MozaBot.</p>
+                  <p className="text-[10px] font-medium max-w-[200px]">Estou aqui para ajudar você a lucrar na MOZA Investimentos.</p>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2 max-w-sm px-4">
+                  {['Como depositar?', 'Como sacar?', 'O que é VIP?', 'Mines Game'].map(q => (
+                    <button 
+                      key={q} 
+                      onClick={() => { setInput(q); }}
+                      className="px-3 py-2 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest hover:bg-gold/10 hover:border-gold/30 transition-all active:scale-95"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))
+            )}
+            {messages.map((m, i) => (
+              <div key={`msg-${i}-${m.role}`} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] p-5 rounded-[24px] text-sm font-medium leading-relaxed ${
+                  m.role === 'user' ? 'gold-gradient text-white rounded-tr-none' : 'bg-card-bg/60 border border-white/5 text-white/90 rounded-tl-none shadow-sm'
+                }`}>
+                  {m.text}
+                </div>
+              </div>
+            ))}
+          </>
         )}
         {isTyping && (
           <div className="flex justify-start">
@@ -1476,7 +1996,7 @@ const AiHelperOverlay = () => {
   );
 };
 
-const LiveChatOverlay = () => {
+const LiveChatOverlay = ({}: { key?: any }) => {
   const { closeOverlay } = useOverlay();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
@@ -1572,7 +2092,7 @@ const LiveChatOverlay = () => {
           </div>
         ) : (
           messages.map((m, i) => (
-            <div key={m.id || i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div key={m.id || `live-${i}`} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[80%] p-5 rounded-[24px] text-sm font-medium leading-relaxed ${
                 m.role === 'user' ? 'gold-gradient text-white rounded-tr-none' : 'bg-card-bg/60 border border-white/5 text-white/90 rounded-tl-none shadow-sm'
               }`}>
@@ -1606,7 +2126,7 @@ const LiveChatOverlay = () => {
   );
 };
 
-const MarketOverlay = () => {
+const MarketOverlay = ({}: { key?: any }) => {
   const { closeOverlay } = useOverlay();
   const data = [
     { time: '00:00', val: 400 },
@@ -1684,7 +2204,7 @@ const MarketOverlay = () => {
   );
 };
 
-const EducationOverlay = () => {
+const EducationOverlay = ({}: { key?: any }) => {
   const { closeOverlay, openOverlay } = useOverlay();
   const [selectedArticle, setSelectedArticle] = useState<any>(null);
   const categories = [
@@ -1848,13 +2368,23 @@ const EducationOverlay = () => {
   );
 };
 
-const LoanOverlay = ({ balance, activeVip, onConfirm }: { balance: number, activeVip: number, onConfirm: (amt: number) => void }) => {
+const LoanOverlay = ({ balance, activeVip, onConfirm }: { balance: number, activeVip: number, onConfirm: (amt: number, payback: number) => void, key?: any }) => {
   const { closeOverlay } = useOverlay();
-  const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
 
-  // Example loan limits based on VIP
-  const loanLimit = (activeVip + 1) * 2000;
-  const loanOptions = [500, 1000, 2000, 5000].filter(amt => amt <= loanLimit);
+  // Defined loan plans indexed by VIP
+  const loanPlans = [
+    { id: 0, amount: 2000, payback: 5000, label: 'Básico' },
+    { id: 1, amount: 10000, payback: 34000, label: 'VIP 1' },
+    { id: 2, amount: 25000, payback: 85000, label: 'VIP 2' },
+    { id: 3, amount: 60000, payback: 200000, label: 'VIP 3' },
+    { id: 4, amount: 150000, payback: 500000, label: 'VIP 4' },
+    { id: 5, amount: 400000, payback: 1300000, label: 'VIP 5+' },
+  ];
+
+  // Filter plans based on activeVip. Users can see their current VIP plan and below.
+  const availablePlans = loanPlans.filter(p => p.id <= activeVip || p.id === 0);
+  const currentPlan = selectedPlan !== null ? loanPlans.find(p => p.id === selectedPlan) : null;
 
   return (
     <motion.div 
@@ -1871,65 +2401,90 @@ const LoanOverlay = ({ balance, activeVip, onConfirm }: { balance: number, activ
         <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
       </div>
 
-      <div className="space-y-8">
-        <div className="bg-card-bg/40 border border-white/5 p-8 rounded-[40px] space-y-4 shadow-sm">
+      <div className="space-y-8 max-w-lg mx-auto w-full">
+        <div className="bg-white/5 border border-white/5 p-8 rounded-[40px] space-y-4 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4">
+             <div className="bg-gold/20 text-gold px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border border-gold/30">
+               VIP {activeVip}
+             </div>
+          </div>
           <div className="space-y-1">
-            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Limite Disponível</p>
-            <p className="text-3xl font-black text-white font-mono">MZN {loanLimit.toLocaleString()}</p>
+            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Nível de Crédito</p>
+            <p className="text-3xl font-black text-white uppercase tracking-tighter">
+              {activeVip === 0 ? "Crédito Básico" : `Linha de Crédito VIP ${activeVip}`}
+            </p>
           </div>
           <p className="text-[10px] font-bold text-gold uppercase tracking-widest leading-relaxed">
-            O seu crédito é baseado no seu nível VIP. Aumente o seu VIP para desbloquear limites maiores.
+            O seu crédito é dimensionado pelo seu estatuto VIP. Membros de níveis superiores têm acesso a maiores quantias e melhores retornos.
           </p>
         </div>
 
         <div className="space-y-4">
-          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block px-2">Selecione o Valor</label>
-          <div className="grid grid-cols-2 gap-4">
-            {loanOptions.map(amt => (
+          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block px-2">Planos de Crédito Disponíveis</label>
+          <div className="grid grid-cols-1 gap-4">
+            {availablePlans.map(plan => (
               <button 
-                key={amt}
-                onClick={() => setSelectedAmount(amt)}
-                className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-2 ${selectedAmount === amt ? 'border-gold bg-gold/5 shadow-lg shadow-gold/10' : 'border-white/5 bg-card-bg/40 shadow-sm'}`}
+                key={plan.id}
+                onClick={() => setSelectedPlan(plan.id)}
+                className={`p-6 rounded-[32px] border-2 transition-all flex justify-between items-center group ${selectedPlan === plan.id ? 'border-gold bg-gold/5 shadow-xl shadow-gold/10' : 'border-white/5 bg-white/5 shadow-sm'}`}
               >
-                <span className={`text-xl font-black font-mono ${selectedAmount === amt ? 'text-gold' : 'text-white'}`}>MZN {amt}</span>
-                <span className="text-[9px] font-black text-gold uppercase tracking-widest">Aprovação Instantânea</span>
+                <div className="flex flex-col items-start gap-1">
+                  <span className={`text-[9px] font-black uppercase tracking-widest ${selectedPlan === plan.id ? 'text-gold' : 'text-white/40'}`}>{plan.label}</span>
+                  <span className={`text-2xl font-black font-mono ${selectedPlan === plan.id ? 'text-gold' : 'text-white'}`}>MZN {plan.amount?.toLocaleString() ?? '0'}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[9px] font-black text-white/20 uppercase tracking-widest block">Retorno Estimado</span>
+                  <span className="text-lg font-black text-white tracking-tight">MZN {plan.payback?.toLocaleString() ?? '0'}</span>
+                </div>
               </button>
             ))}
           </div>
         </div>
 
-        {selectedAmount && (
+        {currentPlan && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm"
+            className="bg-card-bg/40 border border-white/5 p-8 rounded-[40px] space-y-6 shadow-sm relative overflow-hidden"
           >
-            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-              <span className="text-white/40">Taxa de Juro (5%)</span>
-              <span className="text-white">MZN {(selectedAmount * 0.05).toLocaleString()}</span>
+            <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
+            
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Quantia a Receber</span>
+              <span className="text-xl font-black text-white font-mono">MZN {currentPlan.amount?.toLocaleString() ?? '0'}</span>
             </div>
-            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-              <span className="text-white/40">Total a Pagar</span>
-              <span className="text-gold">MZN {(selectedAmount * 1.05).toLocaleString()}</span>
+
+            <div className="flex justify-between items-center pt-2">
+              <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Prazo de Pagamento</span>
+              <span className="text-sm font-black text-white uppercase tracking-widest">60 DIAS</span>
             </div>
-            <p className="text-[9px] text-white/40 uppercase font-bold leading-relaxed">
-              * O valor será debitado automaticamente dos seus rendimentos diários até à liquidação total.
-            </p>
+            
+            <div className="flex justify-between items-center pt-4 border-t border-white/5">
+              <span className="text-[10px] font-black text-gold uppercase tracking-widest">Retorno Total (60 Dias)</span>
+              <span className="text-xl font-black text-gold font-mono">MZN {currentPlan.payback?.toLocaleString() ?? '0'}</span>
+            </div>
+
+            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl flex gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-500 shrink-0" />
+              <p className="text-[9px] text-white/60 uppercase font-bold leading-relaxed">
+                Atenção: O valor de retorno será deduzido automaticamente dos seus lucros futuros num prazo de 60 dias. Certifique-se de que compreende os termos.
+              </p>
+            </div>
           </motion.div>
         )}
 
         <button 
-          onClick={() => selectedAmount && onConfirm(selectedAmount)}
-          disabled={!selectedAmount}
-          className="w-full gold-gradient py-6 rounded-[32px] text-white font-black uppercase tracking-widest shadow-xl shadow-gold/20 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30"
+          onClick={() => currentPlan && onConfirm(currentPlan.amount, currentPlan.payback)}
+          disabled={!currentPlan}
+          className="w-full gold-gradient py-7 rounded-[40px] text-white font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-gold/20 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-20"
         >
-          Solicitar Crédito
+          Solicitar Crédito Agora
         </button>
       </div>
     </motion.div>
   );
 };
 
-const AboutOverlay = () => {
+const AboutOverlay = ({}: { key?: any }) => {
   const { closeOverlay } = useOverlay();
   return (
     <motion.div 
@@ -1988,7 +2543,7 @@ const AboutOverlay = () => {
   );
 };
 
-const DepositManagerOverlay = () => {
+const DepositManagerOverlay = ({}: { key?: any }) => {
   const { closeOverlay } = useOverlay();
   const [deposits, setDeposits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2192,22 +2747,236 @@ const DepositManagerOverlay = () => {
   );
 };
 
-const EditProfileOverlay = ({ user }: { user: any }) => {
+const MinesSection = ({ balance, onUpdateBalance }: { balance: number, onUpdateBalance: (amount: number) => void }) => {
+  const [bet, setBet] = useState(10);
+  const [mineCount, setMineCount] = useState(3);
+  const [gameState, setGameState] = useState<'idle' | 'playing' | 'won' | 'lost'>('idle');
+  const [grid, setGrid] = useState<('mine' | 'gem' | null)[]>(new Array(25).fill(null));
+  const [revealed, setRevealed] = useState<boolean[]>(new Array(25).fill(false));
+  const [mines, setMines] = useState<number[]>([]);
+  const [multiplier, setMultiplier] = useState(1);
+
+  const calculateMultiplier = (revealedCount: number) => {
+    // Basic Mines multiplier logic
+    let mult = 1;
+    const houseEdge = 0.95;
+    for (let i = 0; i < revealedCount; i++) {
+        mult *= (25 - i) / (25 - i - mineCount);
+    }
+    return Math.floor(mult * houseEdge * 100) / 100;
+  };
+
+  const startGame = () => {
+    if (bet > balance) {
+        alert("Saldo Insuficiente!");
+        return;
+    }
+    if (bet < 1) {
+        alert("Aposta mínima é 1 MZN");
+        return;
+    }
+
+    onUpdateBalance(-bet);
+    
+    // Position mines randomly
+    const newMines: number[] = [];
+    while (newMines.length < mineCount) {
+        const pos = Math.floor(Math.random() * 25);
+        if (!newMines.includes(pos)) newMines.push(pos);
+    }
+    
+    setMines(newMines);
+    setGrid(new Array(25).fill(null));
+    setRevealed(new Array(25).fill(false));
+    setGameState('playing');
+    setMultiplier(1);
+  };
+
+  const handleReveal = (index: number) => {
+    if (gameState !== 'playing' || revealed[index]) return;
+
+    const newRevealed = [...revealed];
+    newRevealed[index] = true;
+    setRevealed(newRevealed);
+
+    if (mines.includes(index)) {
+        setGameState('lost');
+        // Show all mines
+        const revealAll = new Array(25).fill(true);
+        setRevealed(revealAll);
+    } else {
+        const currentRevealedCount = newRevealed.filter(v => v).length;
+        const newMult = calculateMultiplier(currentRevealedCount);
+        setMultiplier(newMult);
+        
+        if (currentRevealedCount === 25 - mineCount) {
+            handleCashout(newMult);
+        }
+    }
+  };
+
+  const handleCashout = (finalMult: number = multiplier) => {
+    if (gameState !== 'playing') return;
+    const prize = Math.floor(bet * finalMult);
+    onUpdateBalance(prize);
+    setGameState('won');
+    // Reveal everything
+    setRevealed(new Array(25).fill(true));
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-card-bg/40 backdrop-blur-xl border border-white/5 p-8 rounded-[40px] shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8">
+            <Gem className="w-12 h-12 text-gold opacity-10" />
+        </div>
+        <div className="relative z-10">
+            <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">Moza <br/><span className="text-gold">Mines Game</span></h2>
+            <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.3em] mt-2">Encontre os diamantes e evite as minas</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-4">
+            <div className="space-y-2">
+                <label className="text-[9px] font-black text-white/40 uppercase tracking-widest pl-1">Valor da Aposta (MZN)</label>
+                <div className="relative">
+                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gold" />
+                    <input 
+                      type="number" 
+                      value={bet}
+                      onChange={(e) => setBet(Number(e.target.value))}
+                      disabled={gameState === 'playing'}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm font-black text-white focus:outline-none focus:border-gold/30"
+                    />
+                </div>
+            </div>
+
+            <div className="space-y-2">
+                <label className="text-[9px] font-black text-white/40 uppercase tracking-widest pl-1">Minas (1-24)</label>
+                <div className="grid grid-cols-4 gap-2">
+                    {[1, 3, 5, 10].map(m => (
+                        <button 
+                          key={m}
+                          onClick={() => setMineCount(m)}
+                          disabled={gameState === 'playing'}
+                          className={`py-3 rounded-xl text-[10px] font-black transition-all ${mineCount === m ? 'bg-gold text-white shadow-lg shadow-gold/20' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
+                        >
+                            {m}
+                        </button>
+                    ))}
+                </div>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="24" 
+                  value={mineCount}
+                  onChange={(e) => setMineCount(Number(e.target.value))}
+                  disabled={gameState === 'playing'}
+                  className="w-full accent-gold mt-2"
+                />
+            </div>
+
+            {gameState === 'playing' ? (
+                <button 
+                  onClick={() => handleCashout()}
+                  className="w-full bg-green-500 text-white py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-green-500/20 active:scale-95 transition-all flex flex-col items-center gap-1"
+                >
+                    <span>CASH OUT</span>
+                    <span className="text-[10px] opacity-70">MZN {(bet * multiplier).toFixed(2)}</span>
+                </button>
+            ) : (
+                <button 
+                  onClick={startGame}
+                  className="w-full bg-gold text-black py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-gold/20 active:scale-95 transition-all"
+                >
+                    JOGAR AGORA
+                </button>
+            )}
+        </div>
+
+        <div className="md:col-span-2 flex flex-col items-center gap-6">
+            <div className="grid grid-cols-5 gap-2 w-full max-w-sm aspect-square bg-black/20 p-3 rounded-[32px] border border-white/5 shadow-2xl relative">
+                {new Array(25).fill(0).map((_, i) => (
+                    <motion.button
+                      key={`mine-cell-${i}`}
+                      whileHover={!revealed[i] && gameState === 'playing' ? { scale: 1.05 } : {}}
+                      whileTap={!revealed[i] && gameState === 'playing' ? { scale: 0.95 } : {}}
+                      onClick={() => handleReveal(i)}
+                      className={`relative rounded-xl border transition-all flex items-center justify-center overflow-hidden
+                        ${!revealed[i] ? 'bg-white/5 border-white/10 shadow-sm' : 
+                          mines.includes(i) ? 'bg-red-500/20 border-red-500/50' : 'bg-gold/20 border-gold/50'}
+                      `}
+                    >
+                        <AnimatePresence>
+                            {revealed[i] && (
+                                <motion.div
+                                  initial={{ scale: 0, rotate: -45 }}
+                                  animate={{ scale: 1, rotate: 0 }}
+                                  className="relative z-10"
+                                >
+                                    {mines.includes(i) ? 
+                                        <Bomb className="w-6 h-6 text-red-500" /> : 
+                                        <Gem className="w-6 h-6 text-gold" />
+                                    }
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                        {!revealed[i] && gameState === 'playing' && (
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                        )}
+                    </motion.button>
+                ))}
+            </div>
+
+            <div className="flex gap-4 items-center">
+                <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-2">
+                    <TrendingUp className="w-3 h-3 text-gold" />
+                    <span className="text-[10px] font-black text-white uppercase font-mono">{multiplier.toFixed(2)}x</span>
+                </div>
+                {gameState === 'won' && (
+                    <motion.div 
+                      initial={{ scale: 0 }} animate={{ scale: 1 }}
+                      className="text-green-500 font-black text-xs uppercase tracking-widest"
+                    >
+                        Vitória! +MZN {(bet * multiplier).toFixed(2)}
+                    </motion.div>
+                )}
+                {gameState === 'lost' && (
+                    <motion.div 
+                      initial={{ rotate: 10, scale: 0 }} animate={{ rotate: 0, scale: 1 }}
+                      className="text-red-500 font-black text-xs uppercase tracking-widest"
+                    >
+                        Minado! -MZN {bet}
+                    </motion.div>
+                )}
+            </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const EditProfileOverlay = ({ user }: { user: any, key?: any }) => {
   const { closeOverlay } = useOverlay();
   const [name, setName] = useState(user.name || '');
   const [photoURL, setPhotoURL] = useState(user.photoURL || '');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
+    if (!name.trim()) {
+      alert("Por favor, insira um nome.");
+      return;
+    }
     setSaving(true);
     try {
       const userRef = doc(db, 'users', user.id);
       await updateDoc(userRef, {
-        name,
-        photoURL,
+        name: name.trim(),
+        photoURL: photoURL.trim(),
         updatedAt: serverTimestamp()
       });
-      alert("Perfil atualizado!");
+      alert("Perfil atualizado com sucesso!");
       closeOverlay();
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.id}`);
@@ -2222,56 +2991,68 @@ const EditProfileOverlay = ({ user }: { user: any }) => {
       className="fixed inset-0 z-[2030] bg-dark-bg flex flex-col p-6"
     >
       <div className="flex justify-between items-center mb-10">
-        <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">EDITAR PERFIL</h2>
+        <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">CONFIGURAR PERFIL</h2>
         <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-md mx-auto w-full">
         <div className="flex justify-center mb-8">
-          <div className="w-24 h-24 rounded-full border-2 border-gold p-1 shadow-gold/20 shadow-lg">
+          <div className="w-32 h-32 rounded-full border-2 border-gold p-1 shadow-gold/20 shadow-2xl relative">
             <div className="w-full h-full rounded-full bg-card-bg/40 flex items-center justify-center overflow-hidden">
               {photoURL ? (
                 <img src={photoURL} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (
-                <User className="w-10 h-10 text-gold" />
+                <User className="w-14 h-14 text-gold" />
               )}
+            </div>
+            <div className="absolute -bottom-2 -right-2 bg-gold text-black p-2 rounded-xl shadow-lg">
+              <Sparkles className="w-4 h-4" />
             </div>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest pl-2">NOME DE EXIBIÇÃO</label>
-          <input 
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Seu nome..."
-            className="w-full bg-card-bg/40 border border-white/10 rounded-2xl p-5 text-sm font-black text-white shadow-sm focus:outline-none focus:border-gold/30"
-          />
-        </div>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest pl-2">SEU NOME</label>
+            <div className="relative">
+              <input 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ex: João Comodali"
+                className="w-full bg-card-bg/40 border border-white/10 rounded-2xl p-5 pl-14 text-sm font-black text-white shadow-sm focus:outline-none focus:border-gold/30 transition-all"
+              />
+              <User className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gold/60" />
+            </div>
+          </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest pl-2">URL DA FOTO (OPCIONAL)</label>
-          <input 
-            value={photoURL}
-            onChange={(e) => setPhotoURL(e.target.value)}
-            placeholder="https://exemplo.com/foto.jpg"
-            className="w-full bg-card-bg/40 border border-white/10 rounded-2xl p-5 text-sm font-mono text-white shadow-sm focus:outline-none focus:border-gold/30"
-          />
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest pl-2">FOTO DE PERFIL (URL)</label>
+            <div className="relative">
+              <input 
+                value={photoURL}
+                onChange={(e) => setPhotoURL(e.target.value)}
+                placeholder="https://sua-foto.com/perfil.jpg"
+                className="w-full bg-card-bg/40 border border-white/10 rounded-2xl p-5 pl-14 text-sm font-mono text-white shadow-sm focus:outline-none focus:border-gold/30 transition-all"
+              />
+              <ImageIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gold/60" />
+            </div>
+            <p className="text-[9px] text-white/20 italic pl-2">Dica: Use uma URL de imagem direta do Discord, GitHub ou Google.</p>
+          </div>
         </div>
 
         <button 
           onClick={handleSave}
           disabled={saving}
-          className="w-full gold-gradient py-5 rounded-2xl text-white font-black uppercase tracking-widest shadow-xl shadow-gold/20 active:scale-95 transition-all mt-6 disabled:opacity-50"
+          className="w-full gold-gradient py-5 rounded-2xl text-white font-black uppercase tracking-widest shadow-xl shadow-gold/20 active:scale-95 transition-all mt-8 disabled:opacity-50 disabled:grayscale"
         >
-          {saving ? 'A GUARDAR...' : 'GUARDAR ALTERAÇÕES'}
+          {saving ? 'A PROCESSAR...' : 'GUARDAR ALTERAÇÕES'}
         </button>
       </div>
     </motion.div>
   );
 };
 
-const AdminOverlay = () => {
+const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAppSettings: React.Dispatch<React.SetStateAction<any>>, key?: any }) => {
   const { closeOverlay, openOverlay } = useOverlay();
   const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'withdrawals' | 'stats' | 'promotions' | 'approvals' | 'settings' | 'financial' | 'vips' | 'support'>('users');
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -2279,17 +3060,6 @@ const AdminOverlay = () => {
   const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
   const [supportChats, setSupportChats] = useState<any[]>([]);
   const [selectedAdminThreadId, setSelectedAdminThreadId] = useState<string | null>(null);
-  const [appSettings, setAppSettings] = useState<any>({ 
-    maintenance: false, 
-    bannerText: '', 
-    bannerHighlight: '',
-    mpesaNumber: '848778905',
-    mpesaHolder: 'PAULO JOAQUIM COMODALI',
-    emolaNumber: '875376446',
-    emolaHolder: 'LUISA ZULANE MALUMBE',
-    bankNumber: '0001 2233 4455',
-    bankHolder: 'MOZA INVEST'
-  });
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -2297,22 +3067,36 @@ const AdminOverlay = () => {
     let unsubscribe: (() => void) | null = null;
     setLoading(true);
 
-    if (activeAdminTab === 'users') {
-      unsubscribe = onSnapshot(collection(db, 'users'), (snap) => {
-        setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        setLoading(false);
-      }, (err) => {
-        handleFirestoreError(err, OperationType.LIST, 'admin/users');
-        setLoading(false);
-      });
-    } else if (activeAdminTab === 'withdrawals') {
-      unsubscribe = onSnapshot(query(collection(db, 'transactions'), where('type', '==', 'withdraw'), where('status', '==', 'pending')), (snap) => {
-        setPendingWithdrawals(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        setLoading(false);
-      }, (err) => {
-        handleFirestoreError(err, OperationType.LIST, 'admin/withdrawals');
-        setLoading(false);
-      });
+    if (activeAdminTab === 'users' || activeAdminTab === 'withdrawals') {
+      const fetchUsers = async () => {
+        try {
+          const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(50));
+          const snap = await getDocs(q);
+          setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+          if (activeAdminTab === 'users') setLoading(false);
+        } catch (err) {
+          handleFirestoreError(err, OperationType.LIST, 'admin/users');
+          if (activeAdminTab === 'users') setLoading(false);
+        }
+      };
+      
+      fetchUsers();
+
+      if (activeAdminTab === 'withdrawals') {
+        const unsubscribeWithdrawals = onSnapshot(query(collection(db, 'transactions'), where('type', '==', 'withdraw'), where('status', '==', 'pending')), (snap) => {
+          setPendingWithdrawals(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+          setLoading(false);
+        }, (err) => {
+          handleFirestoreError(err, OperationType.LIST, 'admin/withdrawals');
+          setLoading(false);
+        });
+        
+        const originalUnsubscribe = unsubscribe;
+        unsubscribe = () => {
+          if (originalUnsubscribe) originalUnsubscribe();
+          unsubscribeWithdrawals();
+        };
+      }
     } else if (activeAdminTab === 'approvals') {
       unsubscribe = onSnapshot(query(collection(db, 'transactions'), where('type', '==', 'deposit'), where('status', '==', 'pending')), (snap) => {
         setPendingDeposits(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -2344,15 +3128,7 @@ const AdminOverlay = () => {
         setLoading(false);
       });
     } else if (activeAdminTab === 'settings' || activeAdminTab === 'promotions' || activeAdminTab === 'financial' || activeAdminTab === 'vips') {
-      unsubscribe = onSnapshot(doc(db, 'settings', 'global'), (snap) => {
-        if (snap.exists()) {
-          setAppSettings(prev => ({ ...prev, ...snap.data() }));
-        }
-        setLoading(false);
-      }, (err) => {
-        handleFirestoreError(err, OperationType.GET, 'settings/global');
-        setLoading(false);
-      });
+      setLoading(false);
     } else {
       setLoading(false);
     }
@@ -2529,6 +3305,16 @@ const AdminOverlay = () => {
                            )}
                          </div>
                          <p className="text-[10px] text-white/40 font-mono">+{u.phone}</p>
+                         {u.referredBy && (
+                           <div className="flex items-center gap-1.5 mt-1.5">
+                             <span className="text-[8px] font-black text-white/20 uppercase tracking-widest">Convidado por:</span>
+                             <span className="text-[9px] font-black text-gold uppercase tracking-widest">
+                               {allUsers.find(inv => inv.inviteCode === u.referredBy)?.phone 
+                                 ? `+${allUsers.find(inv => inv.inviteCode === u.referredBy)?.phone}` 
+                                 : u.referredBy}
+                             </span>
+                           </div>
+                         )}
                        </div>
                        <div className="text-right">
                          <p className="text-[10px] font-black text-gold uppercase tracking-widest">Saldo Atual</p>
@@ -2549,11 +3335,11 @@ const AdminOverlay = () => {
                            className="bg-transparent border-none outline-none cursor-pointer font-black"
                          >
                            <option value={0} className="bg-slate-900 text-white">VIP 0 (START)</option>
-                           <option value={1} className="bg-slate-900 text-white">VIP 1 (PREMIUM)</option>
-                           <option value={2} className="bg-slate-900 text-white">VIP 2 (LUXURY)</option>
-                           <option value={3} className="bg-slate-900 text-white">VIP 3 (ELITE)</option>
-                           <option value={4} className="bg-slate-900 text-white">VIP 4 (ATIVO)</option>
-                           <option value={5} className="bg-slate-900 text-white">VIP 5 (GOLDEN)</option>
+                           {VIP_LEVELS.map(v => (
+                             <option key={v.id} value={v.id} className="bg-slate-900 text-white">
+                               {v.name} ({v.badge})
+                             </option>
+                           ))}
                          </select>
                        </div>
                        <button 
@@ -2598,36 +3384,43 @@ const AdminOverlay = () => {
             ) : pendingWithdrawals.length === 0 ? (
               <div className="text-center py-20 text-white/40 font-black uppercase tracking-widest opacity-50">Nenhum levantamento pendente</div>
             ) : (
-              pendingWithdrawals.map(tx => (
-                <div key={tx.id} className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full mb-1 inline-block">PENDENTE</span>
-                      <p className="text-lg font-black text-white font-mono">MZN {tx.amount?.toLocaleString()}</p>
-                      <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{tx.method || 'M-Pesa'}</p>
+              pendingWithdrawals.map(tx => {
+                const user = allUsers.find(u => u.id === tx.userId);
+                return (
+                  <div key={tx.id} className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm group hover:border-gold/20 transition-all">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full mb-1 inline-block border border-blue-500/20">PENDENTE</span>
+                        <p className="text-xl font-black text-white font-mono">MZN {tx.amount?.toLocaleString()}</p>
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-3 h-3 text-white/20" />
+                          <p className="text-[10px] text-white/40 font-black uppercase tracking-widest">{tx.method || 'M-Pesa'} • {tx.phoneNumber || 'N/D'}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                         <p className="text-[9px] font-black text-gold uppercase tracking-[0.2em] mb-1">Utilizador</p>
+                         <h4 className="text-xs font-black text-white uppercase">{user?.name || 'DESCONHECIDO'}</h4>
+                         <p className="text-[9px] text-white/40 font-mono mt-0.5">+{user?.phone || tx.userId?.slice(-10)}</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                       <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Utilizador</p>
-                       <p className="text-[11px] font-black text-white">ID: {tx.userId?.slice(-6)}</p>
+
+                    <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
+                      <button 
+                        onClick={() => handleProcessWithdrawal(tx.id, tx.userId, tx.amount, 'completed')}
+                        className="bg-green-500 hover:bg-green-400 text-white py-4 rounded-2xl flex items-center justify-center gap-2.5 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-green-500/20 active:scale-95 transition-all"
+                      >
+                        <CheckCircle2 className="w-4 h-4" /> Aprovar
+                      </button>
+                      <button 
+                        onClick={() => handleProcessWithdrawal(tx.id, tx.userId, tx.amount, 'failed')}
+                        className="bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 py-4 rounded-2xl flex items-center justify-center gap-2.5 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                      >
+                        <XCircle className="w-4 h-4" /> Rejeitar
+                      </button>
                     </div>
                   </div>
-                  
-                  <div className="flex gap-2 pt-2 border-t border-white/5">
-                    <button 
-                      onClick={() => handleProcessWithdrawal(tx.id, tx.userId, tx.amount, 'completed')}
-                      className="flex-1 bg-green-500 text-white py-4 rounded-2xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest shadow-lg shadow-green-500/20"
-                    >
-                      <CheckCircle2 className="w-4 h-4" /> Aprovar
-                    </button>
-                    <button 
-                      onClick={() => handleProcessWithdrawal(tx.id, tx.userId, tx.amount, 'failed')}
-                      className="flex-1 border border-red-500/30 text-red-500 py-4 rounded-2xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest hover:bg-red-500/5 transition-all"
-                    >
-                      <XCircle className="w-4 h-4" /> Rejeitar
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </motion.div>
         )}
@@ -2693,7 +3486,7 @@ const AdminOverlay = () => {
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-card-bg/20">
                   {supportChats.find(t => t.userId === selectedAdminThreadId)?.messages.map((m: any, i: number) => (
-                    <div key={m.id || i} className={`flex ${m.role === 'agent' ? 'justify-end' : 'justify-start'}`}>
+                    <div key={m.id || `admin-msg-${i}`} className={`flex ${m.role === 'agent' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[85%] p-4 rounded-3xl text-xs font-medium leading-relaxed ${
                         m.role === 'agent' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-card-bg border border-white/10 text-white/90 rounded-tl-none shadow-sm'
                       }`}>
@@ -2998,32 +3791,129 @@ const AdminOverlay = () => {
             transition={{ duration: 0.3 }}
             className="space-y-6"
           >
-            <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
-              <h3 className="font-black text-white uppercase tracking-tight">Customizar Banner Home</h3>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/40 uppercase">Título Principal</label>
-                <input 
-                  value={appSettings.bannerText || ''} 
-                  onChange={(e) => setAppSettings({ ...appSettings, bannerText: e.target.value })}
-                  placeholder="EX: INVISTA AGORA..."
-                  className="w-full bg-white/5 border border-white/5 rounded-xl p-4 text-xs text-white focus:outline-none focus:border-gold/30"
-                />
+            <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-6 shadow-sm">
+              <h3 className="font-black text-white uppercase tracking-tight">Customizar Banners Home</h3>
+              
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={`admin-banner-editor-${i}`} className="space-y-4 p-4 bg-white/5 rounded-2xl border border-white/5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-gold uppercase tracking-[0.2em]">Banner #{i}</span>
+                    <span className="text-[8px] text-white/20 font-mono">ID: banner{i}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Título</label>
+                      <input 
+                        value={appSettings[`banner${i}_title`] || ''} 
+                        onChange={(e) => setAppSettings({ ...appSettings, [`banner${i}_title`]: e.target.value })}
+                        placeholder="Título do banner"
+                        className="w-full bg-black/20 border border-white/5 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-gold/30"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Destaque</label>
+                      <input 
+                        value={appSettings[`banner${i}_highlight`] || ''} 
+                        onChange={(e) => setAppSettings({ ...appSettings, [`banner${i}_highlight`]: e.target.value })}
+                        placeholder="Texto em destaque"
+                        className="w-full bg-black/20 border border-white/5 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-gold/30"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">URL da Imagem (Opcional)</label>
+                    <input 
+                      value={appSettings[`banner${i}_image`] || ''} 
+                      onChange={(e) => setAppSettings({ ...appSettings, [`banner${i}_image`]: e.target.value })}
+                      placeholder="https://exemplo.com/imagem.png"
+                      className="w-full bg-black/20 border border-white/5 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-gold/30"
+                    />
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Descrição</label>
+                    <input 
+                      value={appSettings[`banner${i}_text`] || ''} 
+                      onChange={(e) => setAppSettings({ ...appSettings, [`banner${i}_text`]: e.target.value })}
+                      placeholder="Descrição curta do banner"
+                      className="w-full bg-black/20 border border-white/5 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-gold/30"
+                    />
+                  </div>
+
+                  <button 
+                    onClick={() => handleUpdateSettings({ 
+                      [`banner${i}_title`]: appSettings[`banner${i}_title`],
+                      [`banner${i}_highlight`]: appSettings[`banner${i}_highlight`],
+                      [`banner${i}_text`]: appSettings[`banner${i}_text`],
+                      [`banner${i}_image`]: appSettings[`banner${i}_image`]
+                    })}
+                    className="w-full bg-white/5 hover:bg-gold/10 text-gold py-2 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all border border-gold/20"
+                  >
+                    ATUALIZAR BANNER #{i}
+                  </button>
+                </div>
+              ))}
+
+              <div className="p-6 bg-gold/5 border border-gold/10 rounded-[32px] space-y-6 mt-8">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-black text-white uppercase tracking-tight">Popup de Promoção Global</h3>
+                  <button 
+                    onClick={() => handleUpdateSettings({ promoPopup_enabled: !appSettings.promoPopup_enabled })}
+                    className={`w-14 h-8 rounded-full relative transition-all ${appSettings.promoPopup_enabled ? 'bg-gold shadow-lg shadow-gold/20' : 'bg-card-bg/60'}`}
+                  >
+                    <div className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-all shadow-sm ${appSettings.promoPopup_enabled ? 'right-1' : 'left-1'}`} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Título do Popup</label>
+                    <input 
+                      value={appSettings.promoPopup_title || ''} 
+                      onChange={(e) => setAppSettings({ ...appSettings, promoPopup_title: e.target.value })}
+                      placeholder="EX: BÓNUS DE BOAS-VINDAS"
+                      className="w-full bg-black/20 border border-white/5 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-gold/30"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">URL da Imagem</label>
+                    <input 
+                      value={appSettings.promoPopup_image || ''} 
+                      onChange={(e) => setAppSettings({ ...appSettings, promoPopup_image: e.target.value })}
+                      placeholder="https://exemplo.com/imagem.png"
+                      className="w-full bg-black/20 border border-white/5 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-gold/30"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Texto/Descrição</label>
+                    <textarea 
+                      value={appSettings.promoPopup_text || ''} 
+                      onChange={(e) => setAppSettings({ ...appSettings, promoPopup_text: e.target.value })}
+                      placeholder="Descrição detalhada da promoção..."
+                      rows={3}
+                      className="w-full bg-black/20 border border-white/5 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-gold/30 resize-none"
+                    />
+                  </div>
+
+                  <button 
+                    onClick={() => handleUpdateSettings({ 
+                      promoPopup_title: appSettings.promoPopup_title,
+                      promoPopup_image: appSettings.promoPopup_image,
+                      promoPopup_text: appSettings.promoPopup_text,
+                      promoPopup_enabled: appSettings.promoPopup_enabled
+                    })}
+                    className="w-full gold-gradient py-4 rounded-2xl text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-gold/20 active:scale-95 transition-all"
+                  >
+                    SALVAR POPUP DE PROMOÇÃO
+                  </button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/40 uppercase">Texto Destaque (Dourado)</label>
-                <input 
-                  value={appSettings.bannerHighlight || ''} 
-                  onChange={(e) => setAppSettings({ ...appSettings, bannerHighlight: e.target.value })}
-                  placeholder="EX: 100% SEGURO..."
-                  className="w-full bg-white/5 border border-white/5 rounded-xl p-4 text-xs text-white focus:outline-none focus:border-gold/30"
-                />
+
+              <div className="p-4 bg-gold/10 border border-gold/20 rounded-2xl text-[9px] text-gold font-bold uppercase text-center tracking-widest">
+                As alterações são aplicadas instantaneamente para todos os utilizadores.
               </div>
-              <button 
-                onClick={() => handleUpdateSettings({ bannerText: appSettings.bannerText, bannerHighlight: appSettings.bannerHighlight })}
-                className="w-full bg-gold text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-gold/20 transition-all active:scale-95"
-              >
-                SALVAR ALTERAÇÕES
-              </button>
             </div>
           </motion.div>
         )}
@@ -3050,7 +3940,45 @@ const AdminOverlay = () => {
                    <div className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-all shadow-sm ${appSettings.maintenance ? 'right-1' : 'left-1'}`} />
                  </button>
                </div>
-             </div>
+
+               {appSettings.maintenance && (
+                 <motion.div 
+                   initial={{ opacity: 0, height: 0 }}
+                   animate={{ opacity: 1, height: 'auto' }}
+                   className="pt-4 border-t border-white/5 space-y-3"
+                 >
+                    <label className="text-[10px] font-black text-gold/60 uppercase tracking-widest pl-1">Previsão de Conclusão</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text"
+                        value={appSettings.maintenanceEstimate || ''}
+                        onChange={(e) => setAppSettings(prev => ({ ...prev, maintenanceEstimate: e.target.value.toUpperCase() }))}
+                        placeholder="EX: 2 HORAS, 15:30, ETC"
+                        className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-black text-white focus:border-gold/30 outline-none"
+                      />
+                      <button 
+                        onClick={() => handleUpdateSettings({ maintenanceEstimate: appSettings.maintenanceEstimate })}
+                        className="bg-gold text-black px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all"
+                      >
+                        OK
+                      </button>
+                    </div>
+                 </motion.div>
+               )}
+
+                <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                  <div>
+                    <h3 className="font-black text-white uppercase tracking-tight">Manutenção Permanente</h3>
+                    <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest">BLOQUEIO TOTAL COM ERROR 024</p>
+                  </div>
+                  <button 
+                   onClick={() => handleUpdateSettings({ permanentMaintenance: !appSettings.permanentMaintenance })}
+                   className={`w-14 h-8 rounded-full relative transition-all ${appSettings.permanentMaintenance ? 'bg-red-500 shadow-lg shadow-red-500/20' : 'bg-card-bg/60'}`}
+                  >
+                    <div className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-all shadow-sm ${appSettings.permanentMaintenance ? 'right-1' : 'left-1'}`} />
+                  </button>
+                </div>
+              </div>
 
              <div className="bg-yellow-500/10 border border-yellow-500/20 p-6 rounded-[32px] flex gap-4 shadow-sm">
                 <AlertCircle className="w-6 h-6 text-yellow-500 shrink-0" />
@@ -3066,6 +3994,67 @@ const AdminOverlay = () => {
   );
 };
 
+const PromotionPopup = ({ settings, onClose }: { settings: any, onClose: () => void, key?: any }) => {
+  if (!settings.promoPopup_enabled) return null;
+
+  return (
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="w-full max-w-sm bg-card-bg/40 border border-gold/20 rounded-[48px] overflow-hidden shadow-2xl relative"
+      >
+        <button 
+          onClick={onClose}
+          className="absolute top-6 right-6 w-10 h-10 rounded-full bg-black/40 border border-white/10 flex items-center justify-center text-white/40 hover:text-white z-20"
+        >
+          ✕
+        </button>
+
+        <div className="relative aspect-[4/3] bg-gold/5 flex items-center justify-center overflow-hidden">
+          {settings.promoPopup_image ? (
+            <img 
+              src={settings.promoPopup_image} 
+              alt={settings.promoPopup_title} 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-4 opacity-20">
+              <Sparkles className="w-16 h-16 text-gold" />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+        </div>
+
+        <div className="p-8 space-y-4 relative bg-[#03060b]">
+          <div className="space-y-1">
+             <h3 className="text-2xl font-black text-white uppercase tracking-tighter leading-tight">
+               {settings.promoPopup_title || 'PROMOÇÃO ESPECIAL'}
+             </h3>
+             <div className="h-1 shadow-sm w-12 bg-gold" />
+          </div>
+          
+          <p className="text-xs text-white/60 font-medium leading-relaxed">
+            {settings.promoPopup_text || 'Novas oportunidades de investimento agora disponíveis. Comece a lucrar hoje mesmo!'}
+          </p>
+
+          <button 
+            onClick={onClose}
+            className="w-full gold-gradient py-5 rounded-[24px] text-white font-black uppercase tracking-[0.2em] shadow-xl shadow-gold/20 active:scale-95 transition-all text-xs"
+          >
+            PARTICIPAR AGORA
+          </button>
+
+          <p className="text-[8px] text-white/20 font-black uppercase tracking-widest text-center mt-4">
+            Moza Invest • Limited Time Offer
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 export default function App() {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -3075,13 +4064,18 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   // Overlay state is now part of context
   const [overlayState, setOverlayState] = useState<{ view: OverlayType; data: any }>({ view: 'none', data: null });
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [balance, setBalance] = useState(0);
   const [activeVip, setActiveVip] = useState(0);
   const [loanBalance, setLoanBalance] = useState(0);
   const [dailyTotal, setDailyTotal] = useState(0);
   const [lastTaskDate, setLastTaskDate] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
   const [language, setLanguage] = useState(() => localStorage.getItem('app_lang') || 'pt');
+  const [showPromo, setShowPromo] = useState(false);
+  const [referrals, setReferrals] = useState<any[]>([]);
+  const [referralStats, setReferralStats] = useState({ total: 0, activeVips: 0, totalProfit: 0 });
 
   const t = (key: string) => {
     const langSet = TRANSLATIONS[language] || TRANSLATIONS['pt'];
@@ -3105,15 +4099,54 @@ export default function App() {
   // Global Settings and Dynamic VIPs
   const [appSettings, setAppSettings] = useState<any>({ 
     maintenance: false, 
+    permanentMaintenance: false,
+    maintenanceEstimate: '2 HORAS',
     bannerText: 'O FUTURO DO INVESTIMENTO', 
     bannerHighlight: 'MOZA DIGITAL ASSETS',
+    banner1_title: '',
+    banner1_highlight: '',
+    banner1_text: '',
+    banner1_image: '',
+    banner2_title: '',
+    banner2_highlight: '',
+    banner2_text: '',
+    banner2_image: '',
+    banner3_title: '',
+    banner3_highlight: '',
+    banner3_text: '',
+    banner3_image: '',
+    banner4_title: '',
+    banner4_highlight: '',
+    banner4_text: '',
+    banner4_image: '',
+    banner5_title: '',
+    banner5_highlight: '',
+    banner5_text: '',
+    banner5_image: '',
+    banner6_title: '',
+    banner6_highlight: '',
+    banner6_text: '',
+    banner6_image: '',
     mpesaNumber: '848778905',
     mpesaHolder: 'PAULO JOAQUIM COMODALI',
     emolaNumber: '875376446',
     emolaHolder: 'LUISA ZULANE MALUMBE',
     bankNumber: '0001 2233 4455',
-    bankHolder: 'MOZA INVEST'
+    bankHolder: 'MOZA INVEST',
+    promoPopup_enabled: false,
+    promoPopup_title: '',
+    promoPopup_text: '',
+    promoPopup_image: ''
   });
+
+  useEffect(() => {
+    if (isLoggedIn && appSettings?.promoPopup_enabled) {
+      const hasSeenPromo = sessionStorage.getItem('promo_seen_session');
+      if (!hasSeenPromo) {
+        setShowPromo(true);
+      }
+    }
+  }, [isLoggedIn, appSettings?.promoPopup_enabled]);
 
   const effectiveVipLevels = useMemo(() => {
     return VIP_LEVELS.map(level => {
@@ -3135,16 +4168,32 @@ export default function App() {
     return limit > 0 && dailyTotal >= limit;
   }, [dailyTotal, lastTaskDate, activeVip, effectiveVipLevels]);
 
-  // Global Settings Listener
+  // Global Settings Fetcher (Optimized with cache)
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'settings', 'global'), (doc) => {
-      if (doc.exists()) {
-        setAppSettings(prev => ({ ...prev, ...doc.data() }));
+    const fetchSettings = async () => {
+      try {
+        // Try cache first to save quota
+        let d = null;
+        try {
+          d = await getDocFromCache(doc(db, 'settings', 'global'));
+        } catch (e) {
+          // Cache empty or persistence disabled
+          d = await getDocFromServer(doc(db, 'settings', 'global'));
+        }
+        
+        if (d && d.exists()) {
+          setAppSettings(prev => ({ ...prev, ...d.data() }));
+        }
+      } catch (error: any) {
+        // If it's a quota error, we use hardcoded safe defaults already in the state
+        if (error?.message?.toLowerCase().includes('quota')) {
+          setQuotaExceeded(true);
+        } else {
+          handleFirestoreError(error, OperationType.GET, 'settings/global', setQuotaExceeded);
+        }
       }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'settings/global');
-    });
-    return () => unsub();
+    };
+    fetchSettings();
   }, []);
 
   const openOverlay = (view: OverlayType, data: any = null) => setOverlayState({ view, data });
@@ -3179,6 +4228,7 @@ export default function App() {
           console.log('[AUTH] Admin detected by email:', email);
           setIsAdmin(true);
         }
+        setShowLogin(false);
         setLoading(true);
       }
     });
@@ -3194,56 +4244,103 @@ export default function App() {
 
     console.log('[PROFILE] Setup listener for:', firebaseUser.uid);
     const userDocRef = doc(db, 'users', firebaseUser.uid);
+    
+    const fetchUser = async () => {
+      try {
+        let docSnap = null;
+        try {
+          docSnap = await getDocFromCache(userDocRef);
+        } catch (e) {
+          docSnap = await getDocFromServer(userDocRef);
+        }
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setBalance(data.balance || 0);
+          setActiveVip(data.activeVip || 0);
+          setLoanBalance(data.loanBalance || 0);
+          setDailyTotal(data.dailyTotal || 0);
+          setLastTaskDate(data.lastTaskDate || "");
+          const rawPhone = data.phone || '';
+          const normalizedDataPhone = rawPhone.replace(/\s+/g, '').replace(/[^\d]/g, '').slice(-9);
+          const isTargetAdmin = normalizedDataPhone === '858778905';
+          const isExplicitAdmin = data.role === 'admin';
+          const finalIsAdmin = isExplicitAdmin || isTargetAdmin;
+          setIsAdmin(finalIsAdmin);
+          setUserPhone(rawPhone);
+          setUserName(data.name || '');
+          setPhotoURL(data.photoURL || '');
+          setInviteCode(data.inviteCode || '');
+          if (data.language) setLanguage(data.language);
+          setLoading(false);
+        }
+      } catch (error: any) {
+        if (!error?.message?.toLowerCase().includes('quota')) {
+          handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`, setQuotaExceeded);
+        } else {
+          setQuotaExceeded(true);
+        }
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+    // Only use onSnapshot if quota allows, otherwise we rely on manual refresh/actions
     const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        console.log('[PROFILE] Snapshot received:', data.phone);
         setBalance(data.balance || 0);
         setActiveVip(data.activeVip || 0);
         setLoanBalance(data.loanBalance || 0);
         setDailyTotal(data.dailyTotal || 0);
         setLastTaskDate(data.lastTaskDate || "");
-        const rawPhone = data.phone || '';
-        const normalizedDataPhone = rawPhone.replace(/\s+/g, '').replace(/[^\d]/g, '').slice(-9);
-        const isTargetAdmin = normalizedDataPhone === '858778905';
-        const isExplicitAdmin = data.role === 'admin';
-        
-        const finalIsAdmin = isExplicitAdmin || isTargetAdmin;
-        setIsAdmin(finalIsAdmin);
-        
-        if (finalIsAdmin) {
-          console.log('[ADMIN] Session is ADMIN');
-        }
-
-        // Auto-fix role
-        if (isTargetAdmin && !isExplicitAdmin) {
-          updateDoc(userDocRef, { role: 'admin' }).catch(err => console.error('[ADMIN] Promote Fail:', err));
-        }
-
-        setUserPhone(rawPhone);
+        setUserPhone(data.phone || '');
         setUserName(data.name || '');
-        setPhotoURL(data.photoURL || '');
         setInviteCode(data.inviteCode || '');
-        if (data.language) setLanguage(data.language);
-
-        // Auto-generate invite code if missing
-        if (!data.inviteCode) {
-          const newCode = generateInviteCode();
-          updateDoc(userDocRef, { inviteCode: newCode }).catch(err => console.error('[INVITE] Auto-fix Fail:', err));
-        }
-
-        setLoading(false);
-      } else {
-        console.warn('[PROFILE] Doc not found');
         setLoading(false);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
-      setLoading(false);
+      console.warn('Profile snapshot failed (likely quota). Falling back to one-time gets.');
     });
 
     return () => unsubscribe();
   }, [firebaseUser]);
+
+  // Referrals Listener
+  useEffect(() => {
+    if (!firebaseUser || !inviteCode || activeTab !== 'team') return;
+
+    const q = query(
+      collection(db, 'users'),
+      where('referredBy', '==', inviteCode),
+      limit(20)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
+      // Sort by creation date descending
+      const sortedList = [...list].sort((a, b) => {
+        const timeA = a.createdAt?.seconds || 0;
+        const timeB = b.createdAt?.seconds || 0;
+        return timeB - timeA;
+      });
+      
+      setReferrals(sortedList);
+      setReferralStats(prev => ({
+        ...prev,
+        total: list.length,
+        activeVips: list.filter((u: any) => u.activeVip > 0).length
+      }));
+    }, (error: any) => {
+      if (!error?.message?.toLowerCase().includes('quota')) {
+        handleFirestoreError(error, OperationType.LIST, 'referrals', setQuotaExceeded);
+      } else {
+        setQuotaExceeded(true);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [firebaseUser, inviteCode, activeTab]);
 
   useEffect(() => {
     localStorage.setItem('app_lang', language);
@@ -3253,15 +4350,15 @@ export default function App() {
     }
   }, [language, firebaseUser]);
 
-  // Transactions Listener
+  // Transactions Listener (Optimized for quota)
   useEffect(() => {
-    if (!firebaseUser) return;
+    if (!firebaseUser || (activeTab !== 'mine' && activeTab !== 'records')) return;
 
     const txQuery = query(
       collection(db, 'transactions'),
       where('userId', '==', firebaseUser.uid),
       orderBy('createdAt', 'desc'),
-      limit(50)
+      limit(15)
     );
 
     const unsubscribe = onSnapshot(txQuery, (snapshot) => {
@@ -3270,8 +4367,18 @@ export default function App() {
         ...doc.data()
       })) as Transaction[];
       setTransactions(txs);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'transactions');
+      
+      const refProfit = txs
+        .filter(t => t.type === 'reward' && t.method?.toLowerCase().includes('convite'))
+        .reduce((acc, t) => acc + t.amount, 0);
+      
+      setReferralStats(prev => ({ ...prev, totalProfit: refProfit }));
+    }, (error: any) => {
+      if (!error?.message?.toLowerCase().includes('quota')) {
+        handleFirestoreError(error, OperationType.LIST, 'transactions', setQuotaExceeded);
+      } else {
+        setQuotaExceeded(true);
+      }
     });
 
     return () => unsubscribe();
@@ -3321,7 +4428,7 @@ export default function App() {
     }
   };
 
-  const addTransactionAndNotify = async (type: Transaction['type'], amount: number, status: Transaction['status'], method?: string, proofUrl?: string) => {
+  const addTransactionAndNotify = async (type: Transaction['type'], amount: number, status: Transaction['status'], method?: string, proofUrl?: string, transactionId?: string) => {
     if (!firebaseUser) return;
     
     try {
@@ -3333,6 +4440,7 @@ export default function App() {
         date: new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase(),
         method: method || 'INTERNO',
         proofUrl: proofUrl || '',
+        transactionId: transactionId || '',
         createdAt: serverTimestamp()
       });
     } catch (error) {
@@ -3344,8 +4452,10 @@ export default function App() {
     if (!firebaseUser) return;
     
     try {
+      const task = DAILY_TASKS.find(t => t.id === id);
+      const isSpecial = task?.vipLevel === 0;
       const currentVip = effectiveVipLevels.find(v => v.id === activeVip);
-      const limit = currentVip?.dailyReturn || 0;
+      const limit = isSpecial ? Infinity : (currentVip?.dailyReturn || 0);
       
       const userRef = doc(db, 'users', firebaseUser.uid);
       const userSnap = await getDoc(userRef);
@@ -3359,36 +4469,36 @@ export default function App() {
         dailyTotal = 0;
       }
 
-      if (limit > 0 && dailyTotal >= limit) {
+      if (!isSpecial && limit > 0 && dailyTotal >= limit) {
         alert(t('limit_reached'));
         return;
       }
 
       const effectiveReward = reward || (currentVip?.dailyReturn || 0);
 
-      if (limit > 0 && (dailyTotal + effectiveReward) > limit) {
+      if (!isSpecial && limit > 0 && (dailyTotal + effectiveReward) > limit) {
         alert(t('limit_reached'));
         return;
       }
       
-      await updateDoc(userRef, {
+      await setDoc(userRef, {
         balance: increment(effectiveReward),
-        dailyTotal: (lastTaskDate === today ? dailyTotal : 0) + effectiveReward,
-        lastTaskDate: today,
+        dailyTotal: isSpecial ? dailyTotal : ((lastTaskDate === today ? dailyTotal : 0) + effectiveReward),
+        lastTaskDate: isSpecial ? lastTaskDate : today,
         updatedAt: serverTimestamp()
-      });
-      await addTransactionAndNotify('reward', effectiveReward, 'completed');
-      alert(`Missão concluída! Recebeu MZN ${effectiveReward.toLocaleString()}`);
+      }, { merge: true });
+      await addTransactionAndNotify('reward', effectiveReward, 'completed', isSpecial ? 'Missão Especial' : undefined);
+      alert(`Parabéns! ${isSpecial ? 'Recebeu o bónus especial de' : 'Missão concluída! Recebeu'} MZN ${effectiveReward?.toLocaleString() ?? '0'}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'tasks');
     }
   };
 
-  const handleDeposit = async (amount: number, method: string, proofUrl?: string) => {
+  const handleDeposit = async (amount: number, method: string, proofUrl?: string, transactionId?: string) => {
     if (!firebaseUser) return;
     
     try {
-      await addTransactionAndNotify('deposit', amount, 'pending', method, proofUrl);
+      await addTransactionAndNotify('deposit', amount, 'pending', method, proofUrl, transactionId);
       alert("Depósito solicitado! Por favor, aguarde a aprovação do administrador.");
       closeOverlay();
     } catch (error) {
@@ -3417,13 +4527,13 @@ export default function App() {
     }
   };
 
-  const handleLoan = async (amount: number) => {
+  const handleLoan = async (amount: number, payback: number) => {
     if (!firebaseUser) return;
     try {
       const userRef = doc(db, 'users', firebaseUser.uid);
       await updateDoc(userRef, {
         balance: increment(amount),
-        loanBalance: increment(amount * 1.05),
+        loanBalance: increment(payback),
         updatedAt: serverTimestamp()
       });
       await addTransactionAndNotify('reward', amount, 'completed', 'Empréstimo MOZA');
@@ -3473,20 +4583,99 @@ export default function App() {
     setIsEditingName(false);
   };
 
-  if (appSettings.maintenance && !isAdmin) {
+  if ((appSettings.maintenance || appSettings.permanentMaintenance) && !isAdmin && !showLogin) {
     return (
-      <div className="min-h-screen bg-bg-deep flex flex-col items-center justify-center p-8 text-center space-y-6">
-        <div className="w-20 h-20 bg-red-500/10 rounded-[32px] flex items-center justify-center text-red-500 border border-red-500/20 shadow-2xl shadow-red-500/20">
-          <AlertCircle className="w-10 h-10" />
+      <div className="min-h-screen bg-[#03060b] flex flex-col items-center justify-center p-8 text-center space-y-8 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-gold/20 blur-[120px] rounded-full" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 blur-[120px] rounded-full" />
         </div>
-        <div className="space-y-2">
-          <h1 className="text-2xl font-black text-white uppercase tracking-tighter">Sistema em Manutenção</h1>
-          <p className="text-xs text-white/40 font-bold uppercase tracking-widest leading-relaxed max-w-xs mx-auto">
-            Estamos atualizando os nossos servidores para lhe oferecer uma melhor experiência. Por favor, volte mais tarde.
-          </p>
+
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", stiffness: 200, damping: 20 }}
+          className="w-24 h-24 bg-gold/10 rounded-[38px] flex items-center justify-center text-gold border border-gold/20 shadow-[0_0_50px_-12px_rgba(212,175,55,0.3)] relative"
+        >
+          <div className="absolute inset-0 bg-gold/5 blur-2xl rounded-full animate-pulse" />
+          <Zap className="w-10 h-10 relative z-10 animate-bounce" />
+        </motion.div>
+
+        <div className="space-y-3 relative z-10">
+          <motion.h1 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-4xl font-black text-white uppercase tracking-tighter leading-none"
+          >
+            {appSettings.permanentMaintenance ? (
+              <>Sistema <br/> <span className="text-red-500">Suspenso</span></>
+            ) : (
+              <>Manutenção <br/> <span className="text-gold">Em Curso</span></>
+            )}
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-[11px] text-white/40 font-black uppercase tracking-[0.2em] leading-relaxed max-w-[280px] mx-auto"
+          >
+            {appSettings.permanentMaintenance ? (
+              "O sistema encontra-se temporariamente indisponível para o seu dispositivo. Por favor, contacte o suporte."
+            ) : (
+              "Estamos a otimizar os nossos servidores para garantir a melhor performance. Por favor, aguarde um pouco."
+            )}
+          </motion.p>
         </div>
-        <div className="bg-card-bg/40 px-6 py-3 rounded-full border border-white/10">
-          <p className="text-[10px] font-black text-gold uppercase tracking-widest text-center">Previsão: 2 horas</p>
+
+        {appSettings.permanentMaintenance ? (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-red-500/10 backdrop-blur-xl px-12 py-6 rounded-3xl border border-red-500/20 shadow-2xl relative overflow-hidden"
+          >
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-500/50 to-transparent opacity-50" />
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[9px] font-black text-red-500 uppercase tracking-[0.3em]">Status do Sistema</span>
+              <p className="text-2xl font-black text-white font-mono tracking-widest">ERROR 024</p>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-white/5 backdrop-blur-xl px-8 py-4 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden group"
+          >
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-gold/50 to-transparent opacity-50" />
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[9px] font-black text-gold/60 uppercase tracking-[0.3em]">Previsão de Conclusão</span>
+              <p className="text-xl font-black text-white font-mono tracking-widest">{appSettings.maintenanceEstimate || '2 HORAS'}</p>
+            </div>
+          </motion.div>
+        )}
+
+        <motion.div
+          animate={{ opacity: [0.3, 0.6, 0.3] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="text-[9px] font-black text-gold/40 uppercase tracking-[0.5em] mt-8"
+        >
+          Moza Invest • Digital Banking
+        </motion.div>
+
+        {/* Admin Bypass Button */}
+        <div className="pt-4 flex justify-center w-full max-w-xs mx-auto">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowLogin(true);
+            }}
+            className="w-full text-[10px] font-black text-gold/60 hover:text-gold uppercase tracking-[0.3em] transition-all border border-gold/10 px-8 py-4 rounded-full bg-gold/5 active:scale-95 z-[9999] cursor-pointer relative"
+          >
+            Acesso Administrativo
+          </button>
         </div>
       </div>
     );
@@ -3515,10 +4704,13 @@ export default function App() {
     );
   }
 
-  if (!isLoggedIn) {
+  if (!isLoggedIn || showLogin) {
     return (
       <AnimatePresence mode="wait">
-        <AuthScreen onLogin={() => {}} />
+        <AuthScreen 
+          onLogin={() => {}} 
+          onBack={appSettings.maintenance ? () => setShowLogin(false) : undefined} 
+        />
       </AnimatePresence>
     );
   }
@@ -3527,21 +4719,25 @@ export default function App() {
     <OverlayContext.Provider value={{ view: overlayState.view, data: overlayState.data, openOverlay, closeOverlay }}>
       <div className="min-h-screen bg-[#03060b] flex flex-col pb-32 text-white font-sans selection:bg-gold/30">
         {/* Overlays */}
-        <AnimatePresence>
-          {overlayState.view === 'deposit' && <DepositOverlay onConfirm={handleDeposit} settings={appSettings} />}
-          {overlayState.view === 'withdraw' && <WithdrawOverlay balance={balance} onConfirm={handleWithdraw} />}
-          {overlayState.view === 'loan' && <LoanOverlay balance={balance} activeVip={activeVip} onConfirm={handleLoan} />}
-          {overlayState.view === 'records' && <RecordsOverlay transactions={transactions} />}
-          {overlayState.view === 'support' && <SupportOverlay />}
-          {overlayState.view === 'ai_helper' && <AiHelperOverlay />}
-          {overlayState.view === 'live_chat' && <LiveChatOverlay />}
-          {overlayState.view === 'market' && <MarketOverlay />}
-          {overlayState.view === 'about' && <AboutOverlay />}
-          {overlayState.view === 'education' && <EducationOverlay />}
-          {overlayState.view === 'admin' && <AdminOverlay />}
-          {overlayState.view === 'deposit_manager' && <DepositManagerOverlay />}
-          {overlayState.view === 'edit_profile' && userData && <EditProfileOverlay user={userData} />}
-          {overlayState.view === 'box' && <LuckyBoxOverlay onWin={(amt) => { handleCompleteTask(0, amt); }} />}
+        <AnimatePresence mode="wait">
+          {showPromo && <PromotionPopup key="promo-popup" settings={appSettings} onClose={() => {
+             setShowPromo(false);
+             sessionStorage.setItem('promo_seen_session', 'true');
+          }} />}
+          {overlayState.view === 'deposit' && <DepositOverlay key="overlay-deposit" onConfirm={handleDeposit} settings={appSettings} />}
+          {overlayState.view === 'withdraw' && <WithdrawOverlay key="overlay-withdraw" balance={balance} onConfirm={handleWithdraw} />}
+          {overlayState.view === 'loan' && <LoanOverlay key="overlay-loan" balance={balance} activeVip={activeVip} onConfirm={handleLoan} />}
+          {overlayState.view === 'records' && <RecordsOverlay key="overlay-records" transactions={transactions} />}
+          {overlayState.view === 'support' && <SupportOverlay key="overlay-support" />}
+          {overlayState.view === 'ai_helper' && <AiHelperOverlay key="overlay-ai-helper" appSettings={appSettings} />}
+          {overlayState.view === 'live_chat' && <LiveChatOverlay key="overlay-live-chat" />}
+          {overlayState.view === 'market' && <MarketOverlay key="overlay-market" />}
+          {overlayState.view === 'about' && <AboutOverlay key="overlay-about" />}
+          {overlayState.view === 'education' && <EducationOverlay key="overlay-education" />}
+          {overlayState.view === 'admin' && <AdminOverlay key="overlay-admin" appSettings={appSettings} setAppSettings={setAppSettings} />}
+          {overlayState.view === 'deposit_manager' && <DepositManagerOverlay key="overlay-deposit-manager" />}
+          {overlayState.view === 'edit_profile' && userData && <EditProfileOverlay key="overlay-edit-profile" user={userData} />}
+          {overlayState.view === 'box' && <LuckyBoxOverlay key="overlay-lucky-box" onWin={(amt) => { handleCompleteTask(0, amt); }} />}
         </AnimatePresence>
 
       {/* Modern Header */}
@@ -3554,7 +4750,7 @@ export default function App() {
           </div>
           <div className="flex flex-col">
             <h1 className="text-lg font-black tracking-tighter leading-tight text-white group-hover:text-gold transition-colors">MOZA<span className="text-gold">INV</span></h1>
-            <span className="text-[7px] font-bold uppercase tracking-[0.3em] text-white/30 -mt-0.5">Investment Hub</span>
+            <span className="text-[7px] font-bold uppercase tracking-[0.3em] text-white/30 -mt-0.5">Centro de Investimentos</span>
           </div>
         </div>
         
@@ -3573,6 +4769,12 @@ export default function App() {
           )}
           <div className="bg-card-bg/40 px-4 py-2 rounded-xl border border-white/5 flex items-center gap-2">
             <span className="text-[10px] font-black text-gold uppercase tracking-widest font-mono">ID: {userPhone.slice(-4) || '2026'}</span>
+          </div>
+          <div 
+            onClick={() => setActiveTab('profile')} 
+            className={`w-10 h-10 border rounded-xl flex items-center justify-center transition-all cursor-pointer ${activeTab === 'profile' ? 'bg-gold border-gold text-white shadow-lg shadow-gold/20' : 'bg-card-bg/40 border-white/5 text-white/40 hover:text-gold hover:border-gold/30'}`}
+          >
+             <User className="w-4 h-4" />
           </div>
           <div onClick={handleLogout} className="w-10 h-10 bg-card-bg/40 border border-white/5 rounded-xl flex items-center justify-center text-white/40 hover:text-red-500 cursor-pointer transition-colors shadow-2xl">
              <LogOut className="w-4 h-4" />
@@ -3601,8 +4803,7 @@ export default function App() {
 
               {/* Promotional Banner */}
               <HomeBanner 
-                title={appSettings.bannerText}
-                highlight={appSettings.bannerHighlight}
+                appSettings={appSettings}
                 onBoxClick={() => openOverlay('box')} 
               />
 
@@ -3644,7 +4845,7 @@ export default function App() {
                         </div>
                         <div className="space-y-1">
                           <div className="text-4xl font-black text-white tracking-tighter leading-none font-mono flex items-baseline gap-2">
-                             {balance.toLocaleString()}
+                             {(balance || 0).toLocaleString()}
                              <span className="text-lg text-gold font-sans font-black">MZN</span>
                           </div>
                         </div>
@@ -3688,7 +4889,7 @@ export default function App() {
                 <InfoCard 
                   icon={TrendingUp} 
                   title="Lucro Hoje" 
-                  value={`MZN ${transactions.filter(t => t.type === 'reward').length > 0 ? transactions.filter(t => t.type === 'reward')[0].amount.toLocaleString() : '0.00'}`} 
+                  value={`MZN ${transactions.filter(t => t.type === 'reward').length > 0 ? (transactions.filter(t => t.type === 'reward')[0].amount || 0).toLocaleString() : '0.00'}`} 
                   subtitle="Atualizado agora"
                 />
                 <InfoCard 
@@ -3709,7 +4910,7 @@ export default function App() {
                       </div>
                       <div className="space-y-0.5">
                          <p className="text-[9px] font-black text-red-500 uppercase tracking-widest">Crédito Pendente</p>
-                         <p className="text-lg font-black text-white font-mono">MZN {loanBalance.toLocaleString()}</p>
+                         <p className="text-lg font-black text-white font-mono">MZN {(loanBalance || 0).toLocaleString()}</p>
                       </div>
                    </div>
                     <button 
@@ -3764,12 +4965,48 @@ export default function App() {
                  {activeVip > 0 && (
                    <div className="mt-2 flex items-center justify-between bg-gold/5 border border-gold/10 p-4 rounded-2xl">
                       <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Progresso de Hoje</span>
-                      <span className="text-sm font-black text-gold font-mono">MZN {dailyTotal.toLocaleString()} / {effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn.toLocaleString()}</span>
+                      <span className="text-sm font-black text-gold font-mono">MZN {(dailyTotal || 0).toLocaleString()} / {effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn?.toLocaleString() ?? '0'}</span>
                    </div>
                  )}
                </div>
                
-               <div className="grid gap-4">
+               <div className="grid gap-4 px-4 pb-12">
+                 {/* Special / Global Tasks */}
+                 {DAILY_TASKS.filter(t => t.vipLevel === 0).map(task => (
+                   <motion.div 
+                     key={task.id}
+                     whileHover={{ scale: 1.02 }}
+                     className="bg-gold/10 backdrop-blur-xl border border-gold/20 p-6 rounded-[40px] flex items-center justify-between shadow-2xl group relative overflow-hidden transition-all"
+                   >
+                     <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-gold/50 to-transparent" />
+                     
+                     <div className="flex items-center gap-5 relative z-10">
+                         <div className="w-14 h-14 rounded-[20px] flex items-center justify-center border bg-gold text-black border-gold/20 shadow-md">
+                           <TrendingUp className="w-6 h-6" />
+                         </div>
+                         <div className="space-y-1">
+                           <div className="flex items-center gap-2">
+                             <span className="text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest bg-white text-black">ESPECIAL</span>
+                             <h4 className="font-black uppercase text-sm tracking-tight leading-none text-white">{task.title}</h4>
+                           </div>
+                           <div className="flex items-center gap-2">
+                                 <p className="font-black text-xs font-mono uppercase tracking-widest text-gold">+ MZN {task.reward?.toLocaleString() ?? '0'}</p>
+                                 <span className="text-[8px] text-white/40 font-bold uppercase tracking-widest">{task.category}</span>
+                           </div>
+                         </div>
+                     </div>
+                     <a 
+                       href={(task as any).link} 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       onClick={() => handleCompleteTask(task.id, task.reward)}
+                       className="font-black px-6 py-3.5 rounded-[18px] text-[10px] uppercase tracking-widest relative z-10 transition-all gold-gradient text-white shadow-lg"
+                     >
+                       COLETAR
+                     </a>
+                   </motion.div>
+                 ))}
+
                  {activeVip === 0 ? (
                    <div className="bg-card-bg/40 border border-white/5 p-10 rounded-[40px] text-center space-y-6 shadow-2xl">
                       <div className="w-20 h-20 bg-gold/10 rounded-3xl flex items-center justify-center text-gold mx-auto border border-gold/20 animate-pulse">
@@ -3818,7 +5055,7 @@ export default function App() {
                               <div className="flex items-center gap-2">
                                     <p className={`font-black text-xs font-mono uppercase tracking-widest ${
                                       isLimitReachedToday ? 'text-white/20' : 'text-gold'
-                                    }`}>+ MZN {task.reward.toLocaleString()}</p>
+                                    }`}>+ MZN {task.reward?.toLocaleString() ?? '0'}</p>
                               </div>
                             </div>
                         </div>
@@ -3853,7 +5090,7 @@ export default function App() {
                                 <span className="bg-white/10 text-white/40 text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest">VIP {task.vipLevel}</span>
                                 <h4 className="font-black uppercase text-sm tracking-tight leading-none text-white/20 italic">{task.title}</h4>
                               </div>
-                              <p className="text-white/20 font-black text-xs font-mono uppercase tracking-widest">+ MZN {task.reward.toLocaleString()}</p>
+                              <p className="text-white/20 font-black text-xs font-mono uppercase tracking-widest">+ MZN {task.reward?.toLocaleString() ?? '0'}</p>
                             </div>
                         </div>
                         <div className="bg-white/10 text-white/40 font-black px-6 py-3.5 rounded-[18px] text-[10px] uppercase tracking-widest border border-white/5">
@@ -3867,11 +5104,30 @@ export default function App() {
             </motion.div>
           )}
 
+          {activeTab === 'mines' && (
+            <motion.div 
+               key="mines"
+               initial={{ opacity: 0, y: 20 }}
+               animate={{ opacity: 1, y: 0 }}
+               exit={{ opacity: 0, y: -20 }}
+               className="space-y-6 pt-4 px-4"
+            >
+                <MinesSection balance={balance} onUpdateBalance={(amt) => {
+                    if (!firebaseUser) return;
+                    const userRef = doc(db, 'users', firebaseUser.uid);
+                    updateDoc(userRef, {
+                        balance: increment(amt),
+                        updatedAt: serverTimestamp()
+                    }).catch(e => handleFirestoreError(e, OperationType.UPDATE, 'mines-balance'));
+                }} />
+            </motion.div>
+          )}
+
            {activeTab === 'vip' && (
             <motion.div key="vip" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-8">
                <div className="text-center space-y-2">
                  <h2 className="text-4xl font-black uppercase tracking-tighter text-gold">Premium VIP</h2>
-                 <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.5em] opacity-60">Investment Portfolio</p>
+                 <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.5em] opacity-60">Carteira de Investimentos</p>
                </div>
                <div className="grid gap-6">
                  {effectiveVipLevels.filter(v => v.available).map(level => (
@@ -3889,7 +5145,7 @@ export default function App() {
               initial={{ opacity: 0, y: 30 }} 
               animate={{ opacity: 1, y: 0 }} 
               exit={{ opacity: 0, scale: 0.95 }}
-              className="space-y-8 pt-4"
+              className="space-y-8 pt-4 pb-20"
             >
                <div className="bg-bg-deep/40 backdrop-blur-3xl rounded-[48px] p-10 border border-white/5 relative overflow-hidden shadow-2xl">
                   <div className="absolute top-0 right-0 p-8 opacity-10">
@@ -3905,17 +5161,116 @@ export default function App() {
                      </div>
                      
                      <div className="w-full space-y-4 pt-2">
-                        <div className="bg-white/5 border border-white/5 px-6 py-5 rounded-2xl font-mono font-black text-lg text-gold text-center tracking-[0.2em] shadow-inner">
-                           {userPhone.slice(-4) ? `MOZA-${userPhone.slice(-4)}` : 'MOZA-VIP'}
+                        <div className="bg-white/5 border border-white/5 px-6 py-5 rounded-2xl font-mono font-black text-lg text-gold text-center tracking-[0.2em] shadow-inner relative group/code">
+                           {inviteCode || 'MOZA-VIP'}
+                           <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(inviteCode);
+                              alert("Código copiado!");
+                            }}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-gold transition-colors"
+                           >
+                             <Copy className="w-4 h-4" />
+                           </button>
                         </div>
                         <motion.button 
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
+                          onClick={async () => {
+                            const text = `Regista-te na Moza Invest e começa a lucrar hoje! Usa o meu código de convite: ${inviteCode}`;
+                            if (navigator.share) {
+                              try {
+                                await navigator.share({ title: 'Moza Invest', text, url: window.location.href });
+                              } catch (err: any) {
+                                if (err.name !== 'AbortError') {
+                                  console.error('Erro ao partilhar:', err);
+                                }
+                              }
+                            } else {
+                              navigator.clipboard.writeText(`${text} ${window.location.href}`);
+                              alert("Link de convite copiado!");
+                            }
+                          }}
                           className="w-full gold-gradient text-white py-5 rounded-[22px] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-gold/20"
                         >
                            CONVIDAR AGORA
                         </motion.button>
                      </div>
+                  </div>
+               </div>
+
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-1">
+                     <p className="text-[9px] font-black text-white/40 uppercase tracking-widest leading-none">Total Convites</p>
+                     <p className="text-2xl font-black text-white font-mono">{referralStats.total}</p>
+                  </div>
+                  <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-1">
+                     <p className="text-[9px] font-black text-white/40 uppercase tracking-widest leading-none">Membros VIP</p>
+                     <p className="text-2xl font-black text-gold font-mono">{referralStats.activeVips}</p>
+                  </div>
+               </div>
+
+               <div className="space-y-4">
+                  <div className="flex justify-between items-center px-4">
+                    <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Lista de Membros</h3>
+                    <span className="text-[9px] font-bold text-gold uppercase tracking-widest">Ativos Agora</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {referrals.length === 0 ? (
+                      <div className="p-12 text-center bg-white/5 rounded-[40px] border border-white/5 space-y-4 opacity-50">
+                        <Users className="w-12 h-12 text-white/10 mx-auto" />
+                        <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Ainda não tem convidados na sua rede.</p>
+                      </div>
+                    ) : (
+                      referrals.map((member) => (
+                        <motion.div 
+                          key={member.id}
+                          layout
+                          className="bg-card-bg/40 border border-white/5 p-5 rounded-[32px] flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/20 border border-white/5 overflow-hidden">
+                              {member.photoURL ? (
+                                <img src={member.photoURL} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <User className="w-5 h-5" />
+                              )}
+                            </div>
+                            <div className="space-y-0.5">
+                              <p className="text-xs font-black text-white uppercase tracking-tight">{member.name || (member.phone ? `+258 ${member.phone}` : 'Utilizador Novo')}</p>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[7px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest ${member.activeVip > 0 ? 'bg-gold text-black' : 'bg-white/10 text-white/40'}`}>
+                                  {member.activeVip > 0 ? `INVESTIDOR VIP ${member.activeVip}` : 'REGISTADO'}
+                                </span>
+                                <span className="text-[8px] text-white/30 font-mono font-medium lowercase">registou-se em {member.createdAt?.toDate?.() ? member.createdAt.toDate().toLocaleDateString('pt-PT') : 'recentemente'}</span>
+                              </div>
+                            </div>
+                          </div>
+                          {member.activeVip > 0 && (
+                            <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center text-gold border border-gold/20">
+                              <ShieldCheck className="w-4 h-4" />
+                            </div>
+                          )}
+                        </motion.div>
+                      ))
+                    )}
+                  </div>
+               </div>
+
+               <div className="bg-card-bg/40 border border-white/5 p-8 rounded-[40px] flex items-center justify-between shadow-2xl relative overflow-hidden group">
+                  <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-gold/20 to-transparent" />
+                  <div className="flex items-center gap-5">
+                    <div className="w-14 h-14 rounded-[22px] bg-gold/5 flex items-center justify-center text-gold border border-gold/10 shadow-inner group-hover:scale-110 transition-transform">
+                       <TrendingUp className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-0.5">
+                       <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em]">Lucro de Rede</p>
+                       <p className="text-3xl font-black text-white font-mono leading-none tracking-tighter">MZN {referralStats.totalProfit?.toLocaleString() ?? '0'}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[8px] font-black text-gold uppercase tracking-widest bg-gold/10 px-3 py-1 rounded-full border border-gold/20">COMISSÕES 15%</p>
                   </div>
                </div>
 
@@ -4043,7 +5398,7 @@ export default function App() {
                     </div>
                     <div className="space-y-1">
                       <div className="text-4xl font-black text-white font-mono tracking-tighter">
-                        MZN {balance.toLocaleString()}
+                        MZN {(balance || 0).toLocaleString()}
                       </div>
                       <p className="text-[10px] text-gold font-bold uppercase tracking-[0.2em]">+ {((balance * 0.125) / 30).toFixed(2)} MZN HOJE</p>
                     </div>
@@ -4105,7 +5460,7 @@ export default function App() {
                         </div>
                         <div>
                           <p className="text-[10px] font-black text-red-500 uppercase tracking-widest leading-none mb-1">Dívida de Crédito</p>
-                          <h4 className="text-2xl font-black text-white font-mono">MZN {loanBalance.toLocaleString()}</h4>
+                          <h4 className="text-2xl font-black text-white font-mono">MZN {(loanBalance || 0).toLocaleString()}</h4>
                         </div>
                     </div>
                   </div>
@@ -4170,6 +5525,9 @@ export default function App() {
                    />
                  )}
                  <Icon className={`w-6 h-6 relative z-10 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(212,175,55,0.4)] stroke-[2.5px]' : 'group-hover/nav:scale-110 stroke-[2.0px]'}`} />
+                 {item.id === 'mines' && (
+                   <div className="absolute -top-1 -right-1 bg-red-500 text-[6px] font-black px-1 rounded-full text-white animate-pulse z-20">NEW</div>
+                 )}
                  <span className={`text-[8px] sm:text-[8.5px] font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] relative z-10 transition-all ${isActive ? 'opacity-100' : 'opacity-40'}`}>
                     {t(item.id)}
                  </span>

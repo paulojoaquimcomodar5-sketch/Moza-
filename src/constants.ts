@@ -16,7 +16,8 @@ import {
   Award,
   CheckCircle2,
   TrendingUp,
-  Star
+  Star,
+  Gamepad2
 } from "lucide-react";
 
 export const QUICK_ACTIONS = [
@@ -46,19 +47,42 @@ export const COMPANY_INFO = {
 export const NAV_ITEMS = [
   { id: 'home', label: 'INÍCIO', icon: Home },
   { id: 'tasks', label: 'TAREFA', icon: ClipboardList },
+  { id: 'mines', label: 'MINAS', icon: Gamepad2 },
   { id: 'vip', label: 'VIP', icon: ShieldCheck },
   { id: 'team', label: 'EQUIPA', icon: Users },
   { id: 'profile', label: 'PERFIL', icon: User },
 ];
 
 export const FINANCIAL_METHODS = [
-  { id: 'mpesa', name: 'M-Pesa', color: 'bg-[#e61c2b]', delay: 'Instantâneo', number: '848778905', holder: 'PAULO JOAQUIM COMODALI' },
-  { id: 'emola', name: 'e-Mola', color: 'bg-[#ff6600]', delay: 'Instantâneo', number: '875376446', holder: 'LUISA ZULANE MALUMBE' },
-  { id: 'bank', name: 'Transferência Bancária', color: 'bg-gold', delay: '24-48h', number: '0001 2233 4455', holder: 'MOZA INVEST' },
+  { 
+    id: 'mpesa', 
+    name: 'M-Pesa', 
+    color: 'bg-[#e61c2b]', 
+    delay: 'Instantâneo', 
+    number: '848778905', 
+    holder: 'PAULO JOAQUIM COMODALI',
+  },
+  { 
+    id: 'emola', 
+    name: 'e-Mola', 
+    color: 'bg-[#ff6600]', 
+    delay: 'Instantâneo', 
+    number: '875376446', 
+    holder: 'LUISA ZULANE MALUMBE',
+  },
+  { 
+    id: 'bank', 
+    name: 'Transferência Bancária', 
+    color: 'bg-gold', 
+    delay: '24-48h', 
+    number: '0001 2233 4455', 
+    holder: 'MOZA INVEST',
+  },
 ];
 
 export const DAILY_TASKS = [
   // VIP 1 - Total 36 MZN (2 tarefas de 18)
+  { id: 21, title: 'Inscrever no Canal YouTube', reward: 50, category: 'ESPECIAL', time: '1min', vipLevel: 0, link: 'https://youtube.com/@mozainvest?si=XeLT5nrj9TbxnvIW', description: 'Ganhe 50 MZN e +15% de bónus no próximo depósito!' },
   { id: 1, title: 'Visualizar Publicidade Moza', reward: 18, category: 'MARKETING', time: '15s', vipLevel: 1 },
   { id: 2, title: 'Avaliar App na Play Store', reward: 18, category: 'FEEDBACK', time: '30s', vipLevel: 1 },
   
@@ -231,6 +255,7 @@ export const TRANSLATIONS: Record<string, any> = {
     edit_profile: 'EDITAR PERFIL',
     save: 'GUARDAR',
     limit_reached: 'Limite atingido!',
+    mines: 'MINAS',
   },
   en: {
     home: 'HOME',
@@ -252,6 +277,7 @@ export const TRANSLATIONS: Record<string, any> = {
     edit_profile: 'EDIT PROFILE',
     save: 'SAVE',
     limit_reached: 'Limit reached!',
+    mines: 'MINES',
   },
   ny: {
     home: 'PANYUMBA',
