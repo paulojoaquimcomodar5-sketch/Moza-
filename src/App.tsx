@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   LucideIcon,
@@ -24,6 +24,9 @@ import {
   ShieldCheck,
   Shield,
   Star,
+  Check,
+  Copy,
+  Clock,
   Users,
   User,
   Grid,
@@ -60,18 +63,18 @@ import {
   Ticket,
   Filter,
   Calendar,
-  Clock,
   Zap,
   Bomb,
   Gem,
   Gamepad2,
   ImageIcon,
-  Copy
+  Smartphone,
+  Mail
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 // --- Overlay Management Context ---
-type OverlayType = 'none' | 'deposit' | 'withdraw' | 'records' | 'box' | 'support' | 'market' | 'about' | 'ai_helper' | 'live_chat' | 'education' | 'loan' | 'admin' | 'deposit_manager' | 'edit_profile' | 'mines_tutorial';
+type OverlayType = 'none' | 'deposit' | 'withdraw' | 'records' | 'box' | 'support' | 'market' | 'about' | 'ai_helper' | 'live_chat' | 'education' | 'loan' | 'admin' | 'deposit_manager' | 'edit_profile' | 'mines_tutorial' | 'receipt' | 'notifications';
 
 interface OverlayContextType {
   view: OverlayType;
@@ -119,8 +122,6 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
   signOut,
-  GoogleAuthProvider,
-  signInWithPopup,
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { 
@@ -233,7 +234,7 @@ interface Transaction {
 }
 
 // --- Logo Component ---
-const Logo = ({ className = "scale-100", showText = true }: { className?: string, showText?: boolean }) => (
+const Logo = React.memo(({ className = "scale-100", showText = true }: { className?: string, showText?: boolean }) => (
   <div className={`flex flex-col items-center justify-center gap-3 ${className}`}>
     <div className="relative">
       {/* Decorative Rotating Ring */}
@@ -296,7 +297,8 @@ const Logo = ({ className = "scale-100", showText = true }: { className?: string
       </div>
     )}
   </div>
-);
+));
+Logo.displayName = 'Logo';
 
 const generateInviteCode = () => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -308,7 +310,7 @@ interface AuthScreenProps {
   onBack?: () => void;
 }
 
-const AuthScreen = ({ onLogin, onBack }: AuthScreenProps) => {
+const AuthScreen = React.memo(({ onLogin, onBack }: AuthScreenProps) => {
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot'>('login');
   const [phone, setPhone] = useState('258');
   const [emailForReset, setEmailForReset] = useState('');
@@ -319,52 +321,6 @@ const AuthScreen = ({ onLogin, onBack }: AuthScreenProps) => {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  const handleGoogleLogin = async () => {
-    setError(null);
-    setIsLoading(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-
-      // Check if user exists in Firestore
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) {
-        const initialBalance = 25;
-        await setDoc(userDocRef, {
-          name: user.displayName || '',
-          email: user.email || '',
-          photoURL: user.photoURL || '',
-          balance: initialBalance,
-          activeVip: 0,
-          loanBalance: 0,
-          role: 'user',
-          referredBy: 'MOZA2026',
-          inviteCode: generateInviteCode(),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-
-        await addDoc(collection(db, 'transactions'), {
-          userId: user.uid,
-          type: 'reward',
-          amount: initialBalance,
-          status: 'completed',
-          date: 'HOJE',
-          method: 'Bónus Inicial (Google)',
-          createdAt: serverTimestamp()
-        });
-      }
-    } catch (err: any) {
-      console.error('Google Auth Error:', err);
-      setError('Falha ao entrar com Google. Tente novamente.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -400,7 +356,7 @@ const AuthScreen = ({ onLogin, onBack }: AuthScreenProps) => {
         }
 
         await sendPasswordResetEmail(auth, resetEmail);
-        setStatus('Link de redefinição enviado! Verifique a sua caixa de entrada e a pasta de SPAM.');
+        setStatus('Sucesso! Verifique o e-mail de "MOZA INVEST" na sua caixa de entrada ou SPAM.');
         setIsLoading(false);
         return;
       }
@@ -427,12 +383,36 @@ const AuthScreen = ({ onLogin, onBack }: AuthScreenProps) => {
           balance: initialBalance,
           activeVip: 0,
           loanBalance: 0,
+          firstDepositAt: null, // Keep track of first deposit for withdrawal rules
           role: isAdminPhone ? 'admin' : 'user',
           referredBy: (inviteCodeInput.trim() || 'MOZA2026').toUpperCase(),
           inviteCode: generateInviteCode(),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
+
+        // Registration Reward Transaction
+        await addDoc(collection(db, 'transactions'), {
+          userId: user.uid,
+          amount: initialBalance,
+          type: 'reward',
+          status: 'completed',
+          method: 'Bónus de Boas-vindas MOZA',
+          createdAt: serverTimestamp()
+        });
+
+        // Simulate SMS Confirmation
+        try {
+          await addDoc(collection(db, 'system_notifications'), {
+            userId: user.uid,
+            title: 'SMS: Confirmação de Bónus',
+            message: `Olá! Recebeu MZN ${initialBalance}.00 como recompensa de novo utilizador na MOZA INVEST. Comece a investir agora!`,
+            type: 'sms',
+            createdAt: serverTimestamp()
+          });
+        } catch (e) {
+          console.error('Failed to send mock SMS:', e);
+        }
 
         // Referral Reward Logic: Give 15% bonus to the inviter
         const code = inviteCodeInput.trim().toUpperCase();
@@ -693,6 +673,9 @@ const AuthScreen = ({ onLogin, onBack }: AuthScreenProps) => {
                     />
                   </div>
                   <div className="space-y-3 px-1 mt-4">
+                    <p className="text-[9px] text-white/30 font-medium leading-relaxed italic">
+                      O e-mail será enviado por <span className="text-gold/60 font-bold">MOZA INVEST</span>. Caso não veja na caixa de entrada, verifique o seu <span className="text-gold/60 font-bold">Lixo Eletrónico/SPAM</span>.
+                    </p>
                     <p className="text-[9px] text-white/30 font-medium leading-relaxed">
                       Se você se registrou com <span className="text-gold/40">Número de Telefone</span>, por favor contacte o suporte oficial para redefinir a sua senha com segurança.
                     </p>
@@ -729,49 +712,23 @@ const AuthScreen = ({ onLogin, onBack }: AuthScreenProps) => {
             )}
           </button>
           
-          {/* OR Divider if not in forgot view or as common separator */}
-          <div className="flex items-center gap-4 py-2">
-            <div className="flex-1 h-[1px] bg-white/5" />
-            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">OU</span>
-            <div className="flex-1 h-[1px] bg-white/5" />
-          </div>
+          {/* Back to Login if in forgot view */}
+          {authView === 'forgot' && (
+            <>
+              <div className="flex items-center gap-4 py-2">
+                <div className="flex-1 h-[1px] bg-white/5" />
+                <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">OU</span>
+                <div className="flex-1 h-[1px] bg-white/5" />
+              </div>
 
-          {/* Back to Login if in forgot view, otherwise Google Login */}
-          {authView === 'forgot' ? (
-            <button 
-              type="button"
-              onClick={() => setAuthView('login')}
-              className="w-full bg-white/5 border border-white/10 py-5 rounded-[22px] text-white font-black uppercase tracking-[0.2em] text-xs hover:bg-white/10 active:scale-98 transition-all flex items-center justify-center gap-3"
-            >
-              <span>Voltar ao Login</span>
-            </button>
-          ) : (
-            <button 
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={isLoading}
-              className="w-full bg-white/5 border border-white/10 py-5 rounded-[22px] text-white font-black uppercase tracking-[0.2em] text-xs hover:bg-white/10 active:scale-98 transition-all flex items-center justify-center gap-3"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path
-                  fill="currentColor"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              <span>Continuar com Google</span>
-            </button>
+              <button 
+                type="button"
+                onClick={() => setAuthView('login')}
+                className="w-full bg-white/5 border border-white/10 py-5 rounded-[22px] text-white font-black uppercase tracking-[0.2em] text-xs hover:bg-white/10 active:scale-98 transition-all flex items-center justify-center gap-3"
+              >
+                <span>Voltar ao Login</span>
+              </button>
+            </>
           )}
         </motion.form>
 
@@ -804,11 +761,11 @@ const AuthScreen = ({ onLogin, onBack }: AuthScreenProps) => {
       </div>
     </motion.div>
   );
-};
+});
 
 // --- Home Banner Component ---
-const HomeBanner = ({ onBoxClick, appSettings }: { onBoxClick: () => void, appSettings: any }) => {
-  const banners = [
+const HomeBanner = React.memo(({ onBoxClick, appSettings }: { onBoxClick: () => void, appSettings: any }) => {
+  const banners = useMemo(() => [
     {
       title: "Promoção YouTube",
       subtitle: "Inscreva-se e Ganhe",
@@ -872,7 +829,7 @@ const HomeBanner = ({ onBoxClick, appSettings }: { onBoxClick: () => void, appSe
       text: appSettings.banner6_text || "Processamento acelerado para todos os níveis.",
       action: null
     }
-  ];
+  ], [appSettings, onBoxClick]);
 
   const [current, setCurrent] = React.useState(0);
 
@@ -881,7 +838,7 @@ const HomeBanner = ({ onBoxClick, appSettings }: { onBoxClick: () => void, appSe
       setCurrent((prev) => (prev + 1) % banners.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, []);
+  }, [banners.length]);
 
   return (
     <motion.div 
@@ -939,12 +896,47 @@ const HomeBanner = ({ onBoxClick, appSettings }: { onBoxClick: () => void, appSe
       </AnimatePresence>
     </motion.div>
   );
-};
+});
+HomeBanner.displayName = 'HomeBanner';
+
+// --- Official Video Trailer Component ---
+const VideoTrailer = React.memo(() => {
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="mx-4 space-y-4"
+    >
+      <div className="flex items-center justify-between px-2">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-gold/10 flex items-center justify-center text-gold border border-gold/20">
+            <Youtube className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-white uppercase tracking-tighter leading-none">Trailer Oficial</h3>
+            <p className="text-[8px] text-gold font-black uppercase tracking-widest mt-1">Descubra como lucrar na Moza</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative aspect-video rounded-[32px] overflow-hidden border border-white/5 shadow-2xl bg-black">
+        <iframe 
+          className="absolute inset-0 w-full h-full"
+          src="https://www.youtube.com/embed/LwnC5kivhWM" 
+          title="Moza Invest Official Trailer"
+          frameBorder="0" 
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+          allowFullScreen
+        ></iframe>
+      </div>
+    </motion.div>
+  );
+});
+VideoTrailer.displayName = 'VideoTrailer';
 
 // --- Action Item (Customized cards based on user image) ---
-const ActionItem = ({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick?: () => void }) => {
-  const { openOverlay } = useOverlay();
-  
+const ActionItem = React.memo(({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick?: () => void }) => {
   return (
     <motion.button 
       whileHover={{ y: -5, scale: 1.02 }}
@@ -961,10 +953,11 @@ const ActionItem = ({ icon: Icon, label, onClick }: { icon: LucideIcon; label: s
       </span>
     </motion.button>
   );
-};
+});
+ActionItem.displayName = 'ActionItem';
 
 // --- Info Stat Card ---
-const InfoCard = ({ icon: Icon, title, value, colorClass = "text-green-500", subtitle }: { icon: LucideIcon, title: string, value: string, colorClass?: string, subtitle?: string }) => (
+const InfoCard = React.memo(({ icon: Icon, title, value, colorClass = "text-green-500", subtitle }: { icon: LucideIcon, title: string, value: string, colorClass?: string, subtitle?: string }) => (
   <div className="bg-card-bg/40 backdrop-blur-xl border border-white/5 p-5 sm:p-7 rounded-[32px] flex-1 flex flex-col gap-2 sm:gap-3 shadow-2xl relative overflow-hidden group">
     <div className="absolute top-0 right-0 p-4 opacity-[0.05] group-hover:opacity-[0.1] transition-opacity">
       <Icon className="w-12 h-12" />
@@ -979,31 +972,74 @@ const InfoCard = ({ icon: Icon, title, value, colorClass = "text-green-500", sub
       {subtitle && <p className="text-[9px] sm:text-[10px] font-bold text-white/40 uppercase tracking-widest">{subtitle}</p>}
     </div>
   </div>
-);
+));
+InfoCard.displayName = 'InfoCard';
 
 // --- VIP Platform Card ---
-const VipCard = ({ level, status, onActivate }: { level: any, status: string, onActivate: (id: number) => void }) => (
+const VipCard = React.memo(({ level, status, onActivate }: { level: any, status: string, onActivate: (id: number) => void }) => (
   <motion.div 
     initial={{ opacity: 0, y: 30 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true }}
-    whileHover={{ y: -8 }}
+    whileHover={status === 'passed' ? {} : { y: -8 }}
     transition={{ type: "spring", stiffness: 300, damping: 25 }}
     className={`p-8 rounded-[48px] border flex flex-col gap-6 transition-all shadow-2xl relative overflow-hidden group ${
-      status === 'active' ? 'bg-card-active border-gold/40 border-2 shadow-gold-glow' : 'bg-card-bg/40 border-white/5'
+      status === 'active' ? 'bg-card-active border-gold/40 border-2 shadow-[0_0_40px_rgba(16,185,129,0.15)] scale-[1.02]' : 
+      status === 'passed' ? 'bg-white/5 border-white/5 grayscale opacity-60' : 'bg-card-bg/40 border-white/5'
     }`}
   >
+    {status === 'active' && (
+      <motion.div
+        animate={{ opacity: [0.1, 0.2, 0.1] }}
+        transition={{ repeat: Infinity, duration: 4 }}
+        className="absolute inset-0 bg-gold pointer-events-none"
+      />
+    )}
     {/* Decorative inner glow */}
     <div className={`absolute inset-0 opacity-[0.03] transition-opacity group-hover:opacity-[0.06] ${status === 'active' ? 'bg-gold' : 'bg-card-bg/60'}`} />
     
-    <div className="flex justify-between items-start relative z-10">
+    {/* Animated Shine Effect */}
+    {status === 'active' && (
+      <motion.div
+        initial={{ x: '-100%', skewX: -45 }}
+        animate={{ x: '200%' }}
+        transition={{ repeat: Infinity, duration: 3, ease: "linear", repeatDelay: 1 }}
+        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none z-10"
+      />
+    )}
+
+    {/* Sparkle particles for active VIP */}
+    {status === 'active' && (
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(5)].map((_, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ 
+              opacity: [0, 1, 0],
+              scale: [0, 1.2, 0],
+              x: [Math.random() * 400 - 200, Math.random() * 400 - 200],
+              y: [Math.random() * 400 - 200, Math.random() * 400 - 200]
+            }}
+            transition={{ 
+              repeat: Infinity, 
+              duration: 2 + Math.random() * 2,
+              delay: i * 0.4
+            }}
+            className="absolute top-1/2 left-1/2 w-1 h-1 bg-gold rounded-full blur-[1px]"
+          />
+        ))}
+      </div>
+    )}
+    
+    <div className="flex justify-between items-start relative z-20">
       <div className="flex gap-5 items-center">
-        <div className={`w-18 h-18 rounded-[24px] flex items-center justify-center text-white font-black text-3xl shadow-lg border-4 border-white/5 ${status === 'active' ? 'gold-gradient' : 'bg-card-bg/40 text-white/30'}`}>
+        <div className={`w-18 h-18 rounded-[24px] flex items-center justify-center text-white font-black text-3xl shadow-lg border-4 border-white/5 ${status === 'active' ? 'gold-gradient' : status === 'passed' ? 'bg-white/10 text-white/20' : 'bg-card-bg/40 text-white/30'}`}>
           {level.id}
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <h3 className={`font-black text-2xl uppercase tracking-tighter ${status === 'active' ? 'text-gold' : 'text-white'}`}>{level.name}</h3>
+            <h3 className={`font-black text-2xl uppercase tracking-tighter ${status === 'active' ? 'text-gold' : status === 'passed' ? 'text-white/40' : 'text-white'}`}>{level.name}</h3>
             {status === 'active' && (
               <motion.div 
                 animate={{ scale: [1, 1.1, 1] }} 
@@ -1011,6 +1047,7 @@ const VipCard = ({ level, status, onActivate }: { level: any, status: string, on
                 className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" 
               />
             )}
+            {status === 'passed' && <CheckCircle2 className="w-5 h-5 text-gold/40" />}
           </div>
           <div className="flex items-center gap-2 mt-1">
             <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-widest ${status === 'active' ? 'bg-gold/20 text-gold' : 'bg-card-bg/40 text-white/40'}`}>
@@ -1020,7 +1057,7 @@ const VipCard = ({ level, status, onActivate }: { level: any, status: string, on
         </div>
       </div>
       <div className="text-right">
-        <div className={`text-2xl font-black font-mono leading-none ${status === 'active' ? 'text-gold' : 'text-white'}`}>MZN {level.dailyReturn?.toLocaleString() ?? '0'}</div>
+        <div className={`text-2xl font-black font-mono leading-none ${status === 'active' ? 'text-gold' : status === 'passed' ? 'text-white/40' : 'text-white'}`}>MZN {level.dailyReturn?.toLocaleString() ?? '0'}</div>
         <div className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mt-1.5 opacity-60">Retorno Diário</div>
       </div>
     </div>
@@ -1030,10 +1067,14 @@ const VipCard = ({ level, status, onActivate }: { level: any, status: string, on
         const Icon = getBenefitIcon(benefit);
         return (
           <div key={idx} className="flex items-center gap-3">
-            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${status === 'active' ? 'bg-gold/10 text-gold' : 'bg-card-bg/40 text-white/40'}`}>
+            <motion.div 
+              animate={status === 'active' ? { y: [0, -2, 0] } : {}}
+              transition={{ repeat: Infinity, duration: 2 + idx * 0.5, ease: "easeInOut" }}
+              className={`w-5 h-5 rounded-full flex items-center justify-center ${status === 'active' ? 'bg-gold/10 text-gold' : 'bg-card-bg/40 text-white/40'}`}
+            >
               <Icon className="w-3.5 h-3.5" />
-            </div>
-            <span className="text-[11px] font-bold text-white/60 uppercase tracking-wide">{benefit}</span>
+            </motion.div>
+            <span className={`text-[11px] font-bold uppercase tracking-wide ${status === 'passed' ? 'text-white/20' : 'text-white/60'}`}>{benefit}</span>
           </div>
         );
       })}
@@ -1042,33 +1083,53 @@ const VipCard = ({ level, status, onActivate }: { level: any, status: string, on
     <div className="relative z-10 pt-2 flex items-center justify-between">
       <div>
         <p className="text-[10px] text-white/40 font-black uppercase tracking-widest opacity-60">Investimento</p>
-        <p className="text-lg font-black text-white font-mono">MZN {level.investment?.toLocaleString() ?? '0'}</p>
+        <p className={`text-lg font-black font-mono ${status === 'passed' ? 'text-white/20' : 'text-white'}`}>MZN {level.investment?.toLocaleString() ?? '0'}</p>
       </div>
-       {status !== 'active' ? (
+       {status === 'active' ? (
+         <div className="px-6 py-3 bg-gold/5 border border-gold/20 text-gold text-[10px] font-black rounded-2xl text-center uppercase tracking-[0.2em]">
+            CONTRATO ATIVO
+         </div>
+       ) : status === 'passed' ? (
+         <div className="px-6 py-3 bg-white/5 border border-white/10 text-white/20 text-[10px] font-black rounded-2xl text-center uppercase tracking-[0.2em]">
+            NÍVEL ALCANÇADO
+         </div>
+       ) : (
          <motion.button 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            animate={{ 
+              boxShadow: ["0 0 0px rgba(16,185,129,0)", "0 0 20px rgba(16,185,129,0.3)", "0 0 0px rgba(16,185,129,0)"] 
+            }}
+            transition={{ repeat: Infinity, duration: 2 }}
             onClick={() => onActivate(level.id)} 
             className="px-8 py-4 gold-gradient text-white text-[10px] font-black rounded-2xl shadow-xl uppercase tracking-[0.2em] transform transition-all"
          >
             ATIVAR
          </motion.button>
-       ) : (
-         <div className="px-6 py-3 bg-gold/5 border border-gold/20 text-gold text-[10px] font-black rounded-2xl text-center uppercase tracking-[0.2em]">
-            CONTRATO ATIVO
-         </div>
        )}
     </div>
 
     {/* Background Level Indicator */}
-    <div className="absolute right-[-20px] bottom-[-40px] text-white opacity-[0.02] text-[180px] font-black select-none pointer-events-none tracking-tighter">
+    <motion.div 
+      initial={{ opacity: 0, x: 20 }}
+      whileInView={{ opacity: 0.02, x: 0 }}
+      animate={status === 'active' ? {
+        y: [0, -10, 0],
+        rotate: [0, -2, 2, 0]
+      } : {}}
+      transition={{ 
+        y: { repeat: Infinity, duration: 6, ease: "easeInOut" },
+        rotate: { repeat: Infinity, duration: 8, ease: "easeInOut" }
+      }}
+      className="absolute right-[-20px] bottom-[-40px] text-white text-[180px] font-black select-none pointer-events-none tracking-tighter"
+    >
         {level.id}
-    </div>
+    </motion.div>
   </motion.div>
-);
+));
 
 // --- Financial Overlays ---
-const DepositOverlay = ({ onConfirm, settings }: { onConfirm: (amt: number, method: string, proofUrl?: string, transactionId?: string) => void, settings: any, key?: any }) => {
+const DepositOverlay = React.memo(({ onConfirm, settings }: { onConfirm: (amt: number, method: string, proofUrl?: string, transactionId?: string) => void, settings: any, key?: any }) => {
   const { data: initialAmount, closeOverlay } = useOverlay();
   const [step, setStep] = useState(1);
   const [amount, setAmount] = useState(initialAmount ? initialAmount.toString() : '');
@@ -1354,14 +1415,107 @@ const DepositOverlay = ({ onConfirm, settings }: { onConfirm: (amt: number, meth
       </div>
     </motion.div>
   );
+});
+
+const ReceiptOverlay = ({ data }: { data: { amount: number, method: string, transactionId: string }, key?: any }) => {
+  const { closeOverlay } = useOverlay();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (data.transactionId) {
+      navigator.clipboard.writeText(data.transactionId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm"
+    >
+      <div className="w-full max-w-sm bg-[#0a0c10] border border-white/10 rounded-[48px] overflow-hidden shadow-2xl relative">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-gold/30 rounded-b-full" />
+        
+        <div className="p-10 pt-12 text-center space-y-8">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 border border-green-500/20 shadow-[0_0_40px_rgba(34,197,94,0.1)]">
+              <Check className="w-10 h-10" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Recibo Digital</h2>
+              <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">Moza Invest • Ativos Hub</p>
+            </div>
+          </div>
+
+          <div className="py-8 border-y border-white/5 space-y-6">
+            <div className="space-y-1">
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest leading-none">Valor da Recarga</p>
+              <h3 className="text-4xl font-black text-gold font-mono tracking-tighter">MZN {data.amount.toLocaleString()}</h3>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-left">
+              <div className="p-4 rounded-3xl bg-white/5 space-y-1">
+                <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">Canal</p>
+                <p className="text-[10px] font-black text-white uppercase tracking-tighter truncate">{data.method.toUpperCase()}</p>
+              </div>
+              <div className="p-4 rounded-3xl bg-white/5 space-y-1">
+                <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">Estado</p>
+                <p className="text-[10px] font-black text-yellow-500 uppercase tracking-tighter">Pendente</p>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-3xl bg-white/5 flex items-center justify-between group cursor-pointer" onClick={handleCopy}>
+              <div className="text-left space-y-1 overflow-hidden">
+                <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">Referência ID</p>
+                <p className="text-[11px] font-black text-white font-mono truncate">{data.transactionId || '---'}</p>
+              </div>
+              <div className={`p-2 rounded-xl border border-white/10 transition-all ${copied ? 'bg-gold text-white' : 'text-gold hover:bg-gold/10'}`}>
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 text-left">
+                <div className="w-4 h-4 rounded-full bg-gold/20 flex items-center justify-center text-gold mt-0.5"><Clock className="w-2.5 h-2.5" /></div>
+                <p className="text-[9px] font-bold text-white/40 leading-relaxed uppercase tracking-widest">Pedido em fila. Tempo estimado: <span className="text-gold">15-30 min</span>.</p>
+              </div>
+            </div>
+
+            <button 
+              onClick={closeOverlay}
+              className="w-full gold-gradient py-6 rounded-[32px] text-white font-black uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-gold/20"
+            >
+              Confirmar & Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
 };
 
 
-const WithdrawOverlay = ({ balance, onConfirm }: { balance: number, onConfirm: (amt: number, method: string) => void, key?: any }) => {
+const WithdrawOverlay = React.memo(({ balance, firstDepositAt, onConfirm }: { balance: number, firstDepositAt: any, onConfirm: (amt: number, method: string) => void, key?: any }) => {
   const { closeOverlay } = useOverlay();
   const [amount, setAmount] = useState('');
   const [phone, setPhone] = useState('258');
   const [method, setMethod] = useState('mpesa');
+
+  const getRemainingDays = () => {
+    if (!firstDepositAt) return 60;
+    const firstDepositDate = firstDepositAt?.seconds ? new Date(firstDepositAt.seconds * 1000) : new Date(firstDepositAt);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - firstDepositDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(0, 60 - diffDays);
+  };
+
+  const remainingDays = getRemainingDays();
 
   return (
     <motion.div 
@@ -1374,6 +1528,21 @@ const WithdrawOverlay = ({ balance, onConfirm }: { balance: number, onConfirm: (
       </div>
 
       <div className="space-y-8">
+        {remainingDays > 0 && (
+          <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-[32px] flex items-center gap-4">
+            <Lock className="w-8 h-8 text-red-500 shrink-0" />
+            <div>
+              <p className="text-[10px] font-black text-white uppercase tracking-widest leading-tight">Regra de Segurança MOZA</p>
+              <p className="text-[9px] text-white/60 font-medium uppercase tracking-widest mt-1">
+                {firstDepositAt 
+                  ? `Saque permitido após 60 dias do primeiro depósito. Faltam ${remainingDays} dias.`
+                  : 'Saque permitido apenas 60 dias após o seu primeiro depósito realizado.'
+                }
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="bg-card-bg p-8 rounded-[40px] border border-white/5 text-center shadow-2xl">
           <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2 font-mono">Disponível para Saque</p>
           <h3 className="text-4xl font-black text-white font-mono leading-none">MZN {(balance || 0).toLocaleString()}</h3>
@@ -1418,10 +1587,10 @@ const WithdrawOverlay = ({ balance, onConfirm }: { balance: number, onConfirm: (
 
         <button 
           onClick={() => onConfirm(Number(amount), method)}
-          disabled={!amount || Number(amount) < 500 || Number(amount) > balance}
+          disabled={!amount || Number(amount) < 500 || Number(amount) > balance || remainingDays > 0}
           className="w-full gold-gradient py-6 rounded-[32px] text-white font-black uppercase tracking-widest shadow-xl shadow-gold/20 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30"
         >
-          Processar Saque
+          {remainingDays > 0 ? `BLOQUEADO (${remainingDays} DIAS)` : 'Processar Saque'}
         </button>
         
         <p className="text-[9px] text-white/40 text-center font-bold px-10 leading-relaxed uppercase tracking-widest opacity-60">
@@ -1430,7 +1599,7 @@ const WithdrawOverlay = ({ balance, onConfirm }: { balance: number, onConfirm: (
       </div>
     </motion.div>
   );
-};
+});
 
 const RecordsOverlay = ({ transactions }: { transactions: Transaction[], key?: any }) => {
   const { closeOverlay } = useOverlay();
@@ -2204,6 +2373,107 @@ const MarketOverlay = ({}: { key?: any }) => {
   );
 };
 
+const NotificationsOverlay = ({}: { key?: any }) => {
+  const { closeOverlay } = useOverlay();
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    const q = query(
+      collection(db, 'system_notifications'),
+      where('userId', '==', auth.currentUser.uid),
+      orderBy('createdAt', 'desc'),
+      limit(20)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setNotifications(msgs);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'system_notifications');
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  return (
+    <motion.div 
+      initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col p-6"
+    >
+      <div className="flex justify-between items-center mb-8">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gold/10 rounded-2xl flex items-center justify-center text-gold border border-gold/20">
+            <MessageSquare className="w-6 h-6" />
+          </div>
+          <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Mensagens</h2>
+        </div>
+        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto space-y-4">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-64 gap-4">
+            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full" />
+            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">A carregar mensagens...</p>
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center space-y-4">
+            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center text-white/20">
+              <Mail className="w-8 h-8" />
+            </div>
+            <p className="text-white/40 text-[10px] font-medium uppercase tracking-widest">Nenhuma mensagem recebida</p>
+          </div>
+        ) : (
+          notifications.map((n, i) => (
+            <motion.div 
+              key={n.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-3 relative overflow-hidden group hover:border-gold/30 transition-all"
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${n.type === 'sms' ? 'bg-green-500/10 text-green-500' : 'bg-gold/10 text-gold'}`}>
+                    {n.type === 'sms' ? <Smartphone className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+                  </div>
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">{n.title || 'Sistema'}</span>
+                </div>
+                <span className="text-[8px] font-bold text-white/20 uppercase">
+                  {n.createdAt?.seconds ? new Date(n.createdAt.seconds * 1000).toLocaleDateString() : 'Agora'}
+                </span>
+              </div>
+              <p className="text-xs text-white/60 leading-relaxed font-medium">
+                {n.message}
+              </p>
+              {n.type === 'sms' && (
+                <div className="pt-2 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-[8px] font-black text-green-500 uppercase tracking-widest">Confirmação SMS Moza</span>
+                </div>
+              )}
+            </motion.div>
+          ))
+        )}
+      </div>
+
+      <div className="mt-8 bg-gold/5 border border-gold/10 p-6 rounded-[32px] text-center">
+        <p className="text-[9px] text-gold font-black uppercase tracking-widest leading-relaxed">
+          As mensagens do sistema são verificadas e criptografadas para sua segurança.
+        </p>
+      </div>
+    </motion.div>
+  );
+};
+
 const EducationOverlay = ({}: { key?: any }) => {
   const { closeOverlay, openOverlay } = useOverlay();
   const [selectedArticle, setSelectedArticle] = useState<any>(null);
@@ -2550,6 +2820,7 @@ const DepositManagerOverlay = ({}: { key?: any }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'pending' | 'completed' | 'failed' | 'all'>('pending');
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   useEffect(() => {
     let q = query(
@@ -2578,6 +2849,8 @@ const DepositManagerOverlay = ({}: { key?: any }) => {
   }, [filterStatus]);
 
   const handleProcess = async (txId: string, userId: string, amount: number, status: 'completed' | 'failed') => {
+    if (processingId) return;
+    setProcessingId(txId);
     try {
       await runTransaction(db, async (transaction) => {
         const txRef = doc(db, 'transactions', txId);
@@ -2589,7 +2862,7 @@ const DepositManagerOverlay = ({}: { key?: any }) => {
         ]);
 
         if (!txSnap.exists()) throw new Error('Transação não encontrada');
-        if (txSnap.data().status !== 'pending') throw new Error('Transação já processada');
+        if (txSnap.data().status !== 'pending') throw new Error('ALREADY_PROCESSED');
 
         transaction.update(txRef, { status, updatedAt: serverTimestamp() });
         
@@ -2604,8 +2877,14 @@ const DepositManagerOverlay = ({}: { key?: any }) => {
       });
       alert(`Depósito ${status === 'completed' ? 'Aprovado' : 'Rejeitado'}!`);
     } catch (error: any) {
-      alert(`Erro: ${error.message}`);
-      handleFirestoreError(error, OperationType.UPDATE, `transactions/${txId}`);
+      if (error.message === 'ALREADY_PROCESSED') {
+        alert('Esta transação já foi processada.');
+      } else {
+        alert(`Erro: ${error.message}`);
+        handleFirestoreError(error, OperationType.UPDATE, `transactions/${txId}`);
+      }
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -2726,14 +3005,16 @@ const DepositManagerOverlay = ({}: { key?: any }) => {
               {tx.status === 'pending' && (
                 <div className="flex gap-2 pt-4 border-t border-white/5">
                   <button 
+                    disabled={!!processingId}
                     onClick={() => handleProcess(tx.id, tx.userId, tx.amount, 'completed')}
-                    className="flex-1 bg-green-500 text-white py-4 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-green-500/20"
+                    className={`flex-1 bg-green-500 text-white py-4 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-green-500/20 ${processingId ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    <CheckCircle2 className="w-4 h-4" /> Aprovar Depósito
+                    {processingId === tx.id ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Aprovar Depósito
                   </button>
                   <button 
+                    disabled={!!processingId}
                     onClick={() => handleProcess(tx.id, tx.userId, tx.amount, 'failed')}
-                    className="flex-1 border border-red-500/30 text-red-500 py-4 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/5 active:scale-95 transition-all"
+                    className={`flex-1 border border-red-500/30 text-red-500 py-4 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/5 active:scale-95 transition-all ${processingId ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <XCircle className="w-4 h-4" /> Rejeitar
                   </button>
@@ -3055,6 +3336,7 @@ const EditProfileOverlay = ({ user }: { user: any, key?: any }) => {
 const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAppSettings: React.Dispatch<React.SetStateAction<any>>, key?: any }) => {
   const { closeOverlay, openOverlay } = useOverlay();
   const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'withdrawals' | 'stats' | 'promotions' | 'approvals' | 'settings' | 'financial' | 'vips' | 'support'>('users');
+
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
   const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
@@ -3062,21 +3344,72 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
   const [selectedAdminThreadId, setSelectedAdminThreadId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [procWithdrawalId, setProcWithdrawalId] = useState<string | null>(null);
+
+  const statsData = useMemo(() => {
+    if (!allUsers.length) return [];
+    
+    const groups: { [key: string]: { date: string, name: string, userCount: number, totalBalance: number, timestamp: number } } = {};
+    
+    allUsers.forEach(u => {
+      let date: Date;
+      if (u.createdAt?.seconds) {
+        date = new Date(u.createdAt.seconds * 1000);
+      } else if (u.createdAt?.toDate) {
+        date = u.createdAt.toDate();
+      } else if (u.createdAt instanceof Date) {
+        date = u.createdAt;
+      } else {
+        date = new Date();
+      }
+      
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const dateKey = `${day}/${month}`;
+      
+      if (!groups[dateKey]) {
+        groups[dateKey] = { 
+          date: dateKey, 
+          name: dateKey,
+          userCount: 0, 
+          totalBalance: 0,
+          timestamp: date.setHours(0,0,0,0)
+        };
+      }
+      groups[dateKey].userCount += 1;
+      groups[dateKey].totalBalance += (u.balance || 0);
+    });
+    
+    const sortedDays = Object.values(groups).sort((a, b) => a.timestamp - b.timestamp);
+    
+    let cumulativeUsers = 0;
+    let cumulativeBalance = 0;
+    
+    return sortedDays.map(day => {
+      cumulativeUsers += day.userCount;
+      cumulativeBalance += day.totalBalance;
+      return {
+        ...day,
+        cumulativeUsers,
+        cumulativeBalance
+      };
+    }).slice(-15); // Show up to 15 days of activity
+  }, [allUsers]);
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
     setLoading(true);
 
-    if (activeAdminTab === 'users' || activeAdminTab === 'withdrawals') {
+    if (activeAdminTab === 'users' || activeAdminTab === 'withdrawals' || activeAdminTab === 'stats') {
       const fetchUsers = async () => {
         try {
-          const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(50));
+          const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(100)); // Increased limit for better stats
           const snap = await getDocs(q);
           setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-          if (activeAdminTab === 'users') setLoading(false);
+          if (activeAdminTab === 'users' || activeAdminTab === 'stats') setLoading(false);
         } catch (err) {
           handleFirestoreError(err, OperationType.LIST, 'admin/users');
-          if (activeAdminTab === 'users') setLoading(false);
+          if (activeAdminTab === 'users' || activeAdminTab === 'stats') setLoading(false);
         }
       };
       
@@ -3157,7 +3490,19 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
         transaction.update(txRef, { status, updatedAt: serverTimestamp() });
         
         if (status === 'completed') {
-          transaction.update(userRef, { balance: increment(amount), updatedAt: serverTimestamp() });
+          const userSnap = await transaction.get(userRef);
+          const userData = userSnap.data();
+          
+          const updates: any = { 
+            balance: increment(amount), 
+            updatedAt: serverTimestamp() 
+          };
+          
+          if (!userData?.firstDepositAt) {
+            updates.firstDepositAt = serverTimestamp();
+          }
+          
+          transaction.update(userRef, updates);
         }
       });
       alert(`Depósito ${status === 'completed' ? 'Aprovado' : 'Rejeitado'}!`);
@@ -3190,11 +3535,17 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
   };
 
   const handleProcessWithdrawal = async (txId: string, userId: string, amount: number, status: 'completed' | 'failed') => {
+    if (procWithdrawalId) return;
+    setProcWithdrawalId(txId);
     try {
       await runTransaction(db, async (transaction) => {
         const txRef = doc(db, 'transactions', txId);
         const userRef = doc(db, 'users', userId);
         
+        const txSnap = await transaction.get(txRef);
+        if (!txSnap.exists()) throw new Error('Transação não encontrada');
+        if (txSnap.data().status !== 'pending') throw new Error('ALREADY_PROCESSED');
+
         transaction.update(txRef, { status, updatedAt: serverTimestamp() });
         
         if (status === 'failed') {
@@ -3202,8 +3553,15 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
         }
       });
       alert(`Levantamento ${status === 'completed' ? 'Aprovado' : 'Rejeitado'}!`);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `transactions/${txId}`);
+    } catch (error: any) {
+      if (error.message === 'ALREADY_PROCESSED') {
+        alert('Este levantamento já foi processado.');
+      } else {
+        alert(`Erro: ${error.message}`);
+        handleFirestoreError(error, OperationType.UPDATE, `transactions/${txId}`);
+      }
+    } finally {
+      setProcWithdrawalId(null);
     }
   };
 
@@ -3406,14 +3764,16 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
 
                     <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
                       <button 
+                        disabled={!!procWithdrawalId}
                         onClick={() => handleProcessWithdrawal(tx.id, tx.userId, tx.amount, 'completed')}
-                        className="bg-green-500 hover:bg-green-400 text-white py-4 rounded-2xl flex items-center justify-center gap-2.5 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-green-500/20 active:scale-95 transition-all"
+                        className={`bg-green-500 hover:bg-green-400 text-white py-4 rounded-2xl flex items-center justify-center gap-2.5 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-green-500/20 active:scale-95 transition-all ${procWithdrawalId ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
-                        <CheckCircle2 className="w-4 h-4" /> Aprovar
+                        {procWithdrawalId === tx.id ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Aprovar
                       </button>
                       <button 
+                        disabled={!!procWithdrawalId}
                         onClick={() => handleProcessWithdrawal(tx.id, tx.userId, tx.amount, 'failed')}
-                        className="bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 py-4 rounded-2xl flex items-center justify-center gap-2.5 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                        className={`bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 py-4 rounded-2xl flex items-center justify-center gap-2.5 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all ${procWithdrawalId ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         <XCircle className="w-4 h-4" /> Rejeitar
                       </button>
@@ -3540,20 +3900,118 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
           >
               <div className="grid grid-cols-2 gap-4">
                  <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-1 shadow-sm">
-                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Total Utilizadores</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Users className="w-3 h-3 text-gold" />
+                      <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Total Utilizadores</p>
+                    </div>
                     <p className="text-2xl font-black text-white font-mono">{allUsers.length}</p>
                  </div>
                  <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-1 shadow-sm">
-                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Saldo em Custódia</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Wallet className="w-3 h-3 text-gold" />
+                      <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Saldo em Custódia</p>
+                    </div>
                     <p className="text-2xl font-black text-gold font-mono">MZN {allUsers.reduce((acc, u) => acc + (u.balance || 0), 0).toLocaleString()}</p>
                  </div>
               </div>
 
+              {/* User Growth Chart */}
+              <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[40px] space-y-4 shadow-sm">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-[10px] font-black text-white uppercase tracking-widest opacity-60">Crescimento de Utilizadores</h4>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-gold" />
+                    <span className="text-[9px] font-bold text-white/40 uppercase">Total</span>
+                  </div>
+                </div>
+                <div className="h-[200px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={statsData}>
+                      <defs>
+                        <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#D4AF37" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                      <XAxis 
+                        dataKey="date" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }}
+                        dy={10}
+                      />
+                      <YAxis hide />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
+                        itemStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}
+                        labelStyle={{ color: 'rgba(255,255,255,0.4)', fontSize: '9px', marginBottom: '4px' }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="cumulativeUsers" 
+                        stroke="#D4AF37" 
+                        strokeWidth={3}
+                        fillOpacity={1} 
+                        fill="url(#colorUsers)" 
+                        name="Utilizadores"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Financial Growth Chart */}
+              <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[40px] space-y-4 shadow-sm">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-[10px] font-black text-white uppercase tracking-widest opacity-60">Evolução de Saldo Total</h4>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    <span className="text-[9px] font-bold text-white/40 uppercase">Saldo (MZN)</span>
+                  </div>
+                </div>
+                <div className="h-[200px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={statsData}>
+                      <defs>
+                        <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                      <XAxis 
+                        dataKey="date" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }}
+                        dy={10}
+                      />
+                      <YAxis hide />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
+                        itemStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}
+                        labelStyle={{ color: 'rgba(255,255,255,0.4)', fontSize: '9px', marginBottom: '4px' }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="cumulativeBalance" 
+                        stroke="#3b82f6" 
+                        strokeWidth={3}
+                        fillOpacity={1} 
+                        fill="url(#colorBalance)" 
+                        name="Saldo Total"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
               <div className="bg-indigo-500/10 border border-indigo-500/20 p-8 rounded-[40px] text-center space-y-2 shadow-sm">
                  <LayoutDashboard className="w-8 h-8 text-indigo-500 mx-auto" />
-                 <h4 className="text-lg font-black text-white uppercase tracking-tighter">Administração MOZA</h4>
+                 <h4 className="text-lg font-black text-white uppercase tracking-tighter">Resumo Administrativo</h4>
                  <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest leading-relaxed">
-                   Gerencie a plataforma com responsabilidade. Todas as ações do administrador são registadas no sistema.
+                   Os dados acima reflectem o crescimento da plataforma com base no registo de novos utilizadores e evolução financeira.
                  </p>
               </div>
             </motion.div>
@@ -3994,7 +4452,7 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
   );
 };
 
-const PromotionPopup = ({ settings, onClose }: { settings: any, onClose: () => void, key?: any }) => {
+const PromotionPopup = React.memo(({ settings, onClose }: { settings: any, onClose: () => void, key?: any }) => {
   if (!settings.promoPopup_enabled) return null;
 
   return (
@@ -4053,7 +4511,7 @@ const PromotionPopup = ({ settings, onClose }: { settings: any, onClose: () => v
       </motion.div>
     </div>
   );
-};
+});
 
 export default function App() {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -4070,17 +4528,19 @@ export default function App() {
   const [loanBalance, setLoanBalance] = useState(0);
   const [dailyTotal, setDailyTotal] = useState(0);
   const [lastTaskDate, setLastTaskDate] = useState("");
+  const [firstDepositAt, setFirstDepositAt] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [language, setLanguage] = useState(() => localStorage.getItem('app_lang') || 'pt');
   const [showPromo, setShowPromo] = useState(false);
   const [referrals, setReferrals] = useState<any[]>([]);
   const [referralStats, setReferralStats] = useState({ total: 0, activeVips: 0, totalProfit: 0 });
+  const isProcessing = useRef(false);
 
-  const t = (key: string) => {
+  const t = useCallback((key: string) => {
     const langSet = TRANSLATIONS[language] || TRANSLATIONS['pt'];
     return langSet[key] || key;
-  };
+  }, [language]);
 
   const [photoURL, setPhotoURL] = useState('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -4092,6 +4552,7 @@ export default function App() {
     photoURL: photoURL,
     balance: balance,
     activeVip: activeVip,
+    firstDepositAt: firstDepositAt,
     inviteCode: inviteCode || '',
     loanBalance: loanBalance
   }), [firebaseUser, userName, userPhone, photoURL, balance, activeVip, inviteCode, loanBalance]);
@@ -4168,32 +4629,33 @@ export default function App() {
     return limit > 0 && dailyTotal >= limit;
   }, [dailyTotal, lastTaskDate, activeVip, effectiveVipLevels]);
 
-  // Global Settings Fetcher (Optimized with cache)
+  // Global Settings Fetcher (Real-time sync)
   useEffect(() => {
-    const fetchSettings = async () => {
+    const settingsRef = doc(db, 'settings', 'global');
+    
+    // Initial fetch to ensure we have settings immediately
+    const fetchInitialSettings = async () => {
       try {
-        // Try cache first to save quota
-        let d = null;
-        try {
-          d = await getDocFromCache(doc(db, 'settings', 'global'));
-        } catch (e) {
-          // Cache empty or persistence disabled
-          d = await getDocFromServer(doc(db, 'settings', 'global'));
-        }
-        
+        const d = await getDocFromCache(settingsRef).catch(() => getDocFromServer(settingsRef));
         if (d && d.exists()) {
           setAppSettings(prev => ({ ...prev, ...d.data() }));
         }
-      } catch (error: any) {
-        // If it's a quota error, we use hardcoded safe defaults already in the state
-        if (error?.message?.toLowerCase().includes('quota')) {
-          setQuotaExceeded(true);
-        } else {
-          handleFirestoreError(error, OperationType.GET, 'settings/global', setQuotaExceeded);
-        }
-      }
+      } catch (e) {}
     };
-    fetchSettings();
+    fetchInitialSettings();
+
+    // Set up listener for real-time changes (Maintenance mode, etc)
+    const unsubscribe = onSnapshot(settingsRef, (d) => {
+      if (d.exists()) {
+        setAppSettings(prev => ({ ...prev, ...d.data() }));
+      }
+    }, (error: any) => {
+      if (!error?.message?.toLowerCase().includes('quota')) {
+        handleFirestoreError(error, OperationType.GET, 'settings/global', setQuotaExceeded);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const openOverlay = (view: OverlayType, data: any = null) => setOverlayState({ view, data });
@@ -4221,13 +4683,20 @@ export default function App() {
       } else {
         // Optimistic Admin Check via Auth Email
         const email = user.email || '';
-        const emailPrefix = email.split('@')[0];
+        const emailPrefix = email.split('@')[0].replace(/\s+/g, '');
         // Normalize prefix to last 9 digits to handle optional 258 prefix
         const normalizedPrefix = emailPrefix.slice(-9);
-        if (normalizedPrefix === '858778905' || email === 'paulojoaquimcomodar5@gmail.com') {
+        
+        // Define admin identifiers clearly
+        const isAdminEmail = normalizedPrefix === '858778905' || 
+                           normalizedPrefix === '848778905' ||
+                           email === 'paulojoaquimcomodar5@gmail.com';
+        
+        if (isAdminEmail) {
           console.log('[AUTH] Admin detected by email:', email);
           setIsAdmin(true);
         }
+        
         setShowLogin(false);
         setLoading(true);
       }
@@ -4235,7 +4704,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // User Profile Listener
+  // User Profile Listener (Optimized for Speed & Reliability)
   useEffect(() => {
     if (!firebaseUser) {
        console.log('[PROFILE] No user, skip listener');
@@ -4245,47 +4714,12 @@ export default function App() {
     console.log('[PROFILE] Setup listener for:', firebaseUser.uid);
     const userDocRef = doc(db, 'users', firebaseUser.uid);
     
-    const fetchUser = async () => {
-      try {
-        let docSnap = null;
-        try {
-          docSnap = await getDocFromCache(userDocRef);
-        } catch (e) {
-          docSnap = await getDocFromServer(userDocRef);
-        }
-        
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setBalance(data.balance || 0);
-          setActiveVip(data.activeVip || 0);
-          setLoanBalance(data.loanBalance || 0);
-          setDailyTotal(data.dailyTotal || 0);
-          setLastTaskDate(data.lastTaskDate || "");
-          const rawPhone = data.phone || '';
-          const normalizedDataPhone = rawPhone.replace(/\s+/g, '').replace(/[^\d]/g, '').slice(-9);
-          const isTargetAdmin = normalizedDataPhone === '858778905';
-          const isExplicitAdmin = data.role === 'admin';
-          const finalIsAdmin = isExplicitAdmin || isTargetAdmin;
-          setIsAdmin(finalIsAdmin);
-          setUserPhone(rawPhone);
-          setUserName(data.name || '');
-          setPhotoURL(data.photoURL || '');
-          setInviteCode(data.inviteCode || '');
-          if (data.language) setLanguage(data.language);
-          setLoading(false);
-        }
-      } catch (error: any) {
-        if (!error?.message?.toLowerCase().includes('quota')) {
-          handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`, setQuotaExceeded);
-        } else {
-          setQuotaExceeded(true);
-        }
-        setLoading(false);
-      }
-    };
+    // Safety timeout to prevent stuck loading screen
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 3500);
 
-    fetchUser();
-    // Only use onSnapshot if quota allows, otherwise we rely on manual refresh/actions
+    // Use onSnapshot for real-time sync - it fires immediately with current state
     const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -4294,16 +4728,43 @@ export default function App() {
         setLoanBalance(data.loanBalance || 0);
         setDailyTotal(data.dailyTotal || 0);
         setLastTaskDate(data.lastTaskDate || "");
-        setUserPhone(data.phone || '');
+        setFirstDepositAt(data.firstDepositAt || null);
+        
+        const rawPhone = data.phone || '';
+        const normalizedDataPhone = rawPhone.replace(/\s+/g, '').replace(/[^\d]/g, '').slice(-9);
+        const isTargetAdmin = normalizedDataPhone === '858778905' || normalizedDataPhone === '848778905';
+        const isExplicitAdmin = data.role === 'admin';
+        
+        setIsAdmin(isExplicitAdmin || isTargetAdmin);
+        setUserPhone(rawPhone);
         setUserName(data.name || '');
+        setPhotoURL(data.photoURL || '');
         setInviteCode(data.inviteCode || '');
+        if (data.language) setLanguage(data.language);
+        
         setLoading(false);
+        clearTimeout(safetyTimeout);
+      } else {
+        // Doc doesn't exist yet - could be a new user or sync lag
+        console.log('[PROFILE] User doc missing, initializing defaults');
+        setLoading(false);
+        clearTimeout(safetyTimeout);
       }
-    }, (error) => {
-      console.warn('Profile snapshot failed (likely quota). Falling back to one-time gets.');
+    }, (error: any) => {
+      console.warn('Profile sync failed:', error);
+      if (!error?.message?.toLowerCase().includes('quota')) {
+        handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`, setQuotaExceeded);
+      } else {
+        setQuotaExceeded(true);
+      }
+      setLoading(false);
+      clearTimeout(safetyTimeout);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      clearTimeout(safetyTimeout);
+    };
   }, [firebaseUser]);
 
   // Referrals Listener
@@ -4384,14 +4845,25 @@ export default function App() {
     return () => unsubscribe();
   }, [firebaseUser]);
 
-  const handleActivateVip = async (id: number) => {
-    if (!firebaseUser) return;
+  const handleActivateVip = useCallback(async (id: number) => {
+    if (!firebaseUser || isProcessing.current) return;
+    isProcessing.current = true;
     
     const level = effectiveVipLevels.find(v => v.id === id);
-    if (!level || !level.available) return;
+    if (!level || !level.available) {
+      isProcessing.current = false;
+      return;
+    }
+
+    if (id <= activeVip) {
+      alert("Você já possui este nível VIP ou um nível superior.");
+      isProcessing.current = false;
+      return;
+    }
 
     if (balance < level.investment) {
       openOverlay('deposit', level.investment);
+      isProcessing.current = false;
       return;
     }
 
@@ -4425,10 +4897,12 @@ export default function App() {
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'vip-activation');
       alert("Erro ao ativar VIP. Tente novamente.");
+    } finally {
+      isProcessing.current = false;
     }
-  };
+  }, [firebaseUser, effectiveVipLevels, balance]);
 
-  const addTransactionAndNotify = async (type: Transaction['type'], amount: number, status: Transaction['status'], method?: string, proofUrl?: string, transactionId?: string) => {
+  const addTransactionAndNotify = useCallback(async (type: Transaction['type'], amount: number, status: Transaction['status'], method?: string, proofUrl?: string, transactionId?: string) => {
     if (!firebaseUser) return;
     
     try {
@@ -4446,10 +4920,11 @@ export default function App() {
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'transactions');
     }
-  };
+  }, [firebaseUser]);
 
-  const handleCompleteTask = async (id: number, reward: number) => {
-    if (!firebaseUser) return;
+  const handleCompleteTask = useCallback(async (id: number, reward: number) => {
+    if (!firebaseUser || isProcessing.current) return;
+    isProcessing.current = true;
     
     try {
       const task = DAILY_TASKS.find(t => t.id === id);
@@ -4458,7 +4933,7 @@ export default function App() {
       const limit = isSpecial ? Infinity : (currentVip?.dailyReturn || 0);
       
       const userRef = doc(db, 'users', firebaseUser.uid);
-      const userSnap = await getDoc(userRef);
+      const userSnap = await getDocFromServer(userRef); // Use server for final task check
       const fireData = userSnap.data();
       
       const today = new Date().toDateString();
@@ -4471,6 +4946,7 @@ export default function App() {
 
       if (!isSpecial && limit > 0 && dailyTotal >= limit) {
         alert(t('limit_reached'));
+        isProcessing.current = false;
         return;
       }
 
@@ -4478,6 +4954,7 @@ export default function App() {
 
       if (!isSpecial && limit > 0 && (dailyTotal + effectiveReward) > limit) {
         alert(t('limit_reached'));
+        isProcessing.current = false;
         return;
       }
       
@@ -4491,26 +4968,47 @@ export default function App() {
       alert(`Parabéns! ${isSpecial ? 'Recebeu o bónus especial de' : 'Missão concluída! Recebeu'} MZN ${effectiveReward?.toLocaleString() ?? '0'}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'tasks');
+    } finally {
+      isProcessing.current = false;
     }
-  };
+  }, [firebaseUser, effectiveVipLevels, activeVip, addTransactionAndNotify, t]);
 
-  const handleDeposit = async (amount: number, method: string, proofUrl?: string, transactionId?: string) => {
+  const handleDeposit = useCallback(async (amount: number, method: string, proofUrl?: string, transactionId?: string) => {
     if (!firebaseUser) return;
     
     try {
       await addTransactionAndNotify('deposit', amount, 'pending', method, proofUrl, transactionId);
-      alert("Depósito solicitado! Por favor, aguarde a aprovação do administrador.");
-      closeOverlay();
+      openOverlay('receipt', { amount, method, transactionId });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'deposit');
     }
-  };
+  }, [firebaseUser, addTransactionAndNotify]);
 
-  const handleWithdraw = async (amount: number, method: string) => {
-    if (!firebaseUser) return;
+  const handleWithdraw = useCallback(async (amount: number, method: string) => {
+    if (!firebaseUser || isProcessing.current) return;
+    isProcessing.current = true;
+    
+    // Rule: First deposit must be at least 60 days old
+    if (!firstDepositAt) {
+      alert("Para realizar um levantamento, você deve primeiro efetuar um depósito.");
+      isProcessing.current = false;
+      return;
+    }
+
+    const firstDepositDate = firstDepositAt?.seconds ? new Date(firstDepositAt.seconds * 1000) : new Date(firstDepositAt);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - firstDepositDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 60) {
+      alert(`Regra MOZA: Levantamentos só são permitidos 60 dias após o primeiro depósito. Faltam ${60 - diffDays} dias.`);
+      isProcessing.current = false;
+      return;
+    }
     
     if (amount > balance) {
       alert("Saldo Insuficiente.");
+      isProcessing.current = false;
       return;
     }
 
@@ -4524,11 +5022,14 @@ export default function App() {
       closeOverlay();
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'withdraw');
+    } finally {
+      isProcessing.current = false;
     }
-  };
+  }, [firebaseUser, balance, addTransactionAndNotify]);
 
-  const handleLoan = async (amount: number, payback: number) => {
-    if (!firebaseUser) return;
+  const handleLoan = useCallback(async (amount: number, payback: number) => {
+    if (!firebaseUser || isProcessing.current) return;
+    isProcessing.current = true;
     try {
       const userRef = doc(db, 'users', firebaseUser.uid);
       await updateDoc(userRef, {
@@ -4541,8 +5042,10 @@ export default function App() {
       alert("Crédito aprovado e creditado no seu saldo!");
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'loan');
+    } finally {
+      isProcessing.current = false;
     }
-  };
+  }, [firebaseUser, addTransactionAndNotify]);
 
   const handleLogout = async () => {
     try {
@@ -4551,6 +5054,7 @@ export default function App() {
       setBalance(0);
       setActiveVip(0);
       setLoanBalance(0);
+      setFirstDepositAt(null);
       setIsAdmin(false);
       setTransactions([]);
       setUserPhone('');
@@ -4563,8 +5067,17 @@ export default function App() {
     }
   };
 
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [tempName, setTempName] = useState('');
+  const dailyRewardAmount = useMemo(() => {
+    const rewards = transactions.filter(t => t.type === 'reward');
+    return rewards.length > 0 ? (rewards[0].amount || 0).toLocaleString() : '0.00';
+  }, [transactions]);
+
+  const specialTasks = useMemo(() => DAILY_TASKS.filter(t => t.vipLevel === 0), []);
+  const vipTasks = useMemo(() => DAILY_TASKS.filter(t => t.vipLevel === activeVip), [activeVip]);
+  const nextLevelTasks = useMemo(() => 
+    DAILY_TASKS.filter(t => t.vipLevel === activeVip + 1 && effectiveVipLevels.find(v => v.id === activeVip + 1)?.available),
+    [activeVip, effectiveVipLevels]
+  );
 
   const updateProfileName = async (newName: string) => {
     if (!firebaseUser) return;
@@ -4576,11 +5089,6 @@ export default function App() {
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${firebaseUser.uid}`);
     }
-  };
-
-  const handleSaveName = () => {
-    updateProfileName(tempName);
-    setIsEditingName(false);
   };
 
   if ((appSettings.maintenance || appSettings.permanentMaintenance) && !isAdmin && !showLogin) {
@@ -4683,24 +5191,76 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#03060b] flex flex-col items-center justify-center p-6 text-center space-y-6">
+      <AnimatePresence>
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative"
+          key="loader"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="min-h-screen bg-[#03060b] flex flex-col items-center justify-center relative overflow-hidden"
         >
-          <div className="w-16 h-16 border-4 border-gold/10 border-t-gold rounded-full animate-spin" />
-          <div className="absolute inset-0 flex items-center justify-center">
-             <div className="w-8 h-8 bg-gold/20 rounded-full blur-xl animate-pulse" />
+          {/* Pulsing Background Glow */}
+          <motion.div 
+            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gold/10 blur-[120px] rounded-full" 
+          />
+          
+          <div className="relative z-10 flex flex-col items-center gap-8">
+            <motion.div
+              animate={{ 
+                y: [0, -10, 0],
+                rotateY: [0, 180, 360]
+              }}
+              transition={{ 
+                duration: 3, 
+                repeat: Infinity, 
+                ease: "easeInOut" 
+              }}
+            >
+              <Logo showText={false} className="scale-125" />
+            </motion.div>
+            
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex flex-col items-center">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-2xl font-black tracking-[0.2em] text-white uppercase">MOZA</span>
+                  <span className="text-2xl font-black tracking-[0.2em] text-gold uppercase">INVEST</span>
+                </div>
+                <div className="h-0.5 w-12 bg-gold/40 mt-1" />
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1.5">
+                  <motion.div 
+                    animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 1, repeat: Infinity, delay: 0 }}
+                    className="w-1.5 h-1.5 rounded-full bg-gold" 
+                  />
+                  <motion.div 
+                    animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                    className="w-1.5 h-1.5 rounded-full bg-gold" 
+                  />
+                  <motion.div 
+                    animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                    className="w-1.5 h-1.5 rounded-full bg-gold" 
+                  />
+                </div>
+                <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] animate-pulse">
+                   {isLoggedIn ? 'Sincronizando Conta' : 'Iniciando Sistema'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="absolute bottom-12 text-center space-y-1">
+             <p className="text-[8px] font-black text-white/10 uppercase tracking-[0.5em]">Plataforma Digital de Investimento Premium</p>
+             <p className="text-[7px] font-bold text-gold/20 uppercase tracking-[0.2em]">Versão Estável 1.0.24</p>
           </div>
         </motion.div>
-        <div className="space-y-1">
-          <p className="text-[10px] font-black text-gold uppercase tracking-[0.3em] animate-pulse">
-            {isLoggedIn ? 'Sincronizando Conta' : 'Iniciando Sistema'}
-          </p>
-          <p className="text-[8px] text-white/40 font-black uppercase tracking-widest opacity-60">MOZA PREMIUM SEGURO</p>
-        </div>
-      </div>
+      </AnimatePresence>
     );
   }
 
@@ -4725,7 +5285,8 @@ export default function App() {
              sessionStorage.setItem('promo_seen_session', 'true');
           }} />}
           {overlayState.view === 'deposit' && <DepositOverlay key="overlay-deposit" onConfirm={handleDeposit} settings={appSettings} />}
-          {overlayState.view === 'withdraw' && <WithdrawOverlay key="overlay-withdraw" balance={balance} onConfirm={handleWithdraw} />}
+          {overlayState.view === 'receipt' && <ReceiptOverlay key="overlay-receipt" data={overlayState.data} />}
+          {overlayState.view === 'withdraw' && <WithdrawOverlay key="overlay-withdraw" balance={balance} firstDepositAt={firstDepositAt} onConfirm={handleWithdraw} />}
           {overlayState.view === 'loan' && <LoanOverlay key="overlay-loan" balance={balance} activeVip={activeVip} onConfirm={handleLoan} />}
           {overlayState.view === 'records' && <RecordsOverlay key="overlay-records" transactions={transactions} />}
           {overlayState.view === 'support' && <SupportOverlay key="overlay-support" />}
@@ -4734,6 +5295,7 @@ export default function App() {
           {overlayState.view === 'market' && <MarketOverlay key="overlay-market" />}
           {overlayState.view === 'about' && <AboutOverlay key="overlay-about" />}
           {overlayState.view === 'education' && <EducationOverlay key="overlay-education" />}
+          {overlayState.view === 'notifications' && <NotificationsOverlay key="overlay-notifications" />}
           {overlayState.view === 'admin' && <AdminOverlay key="overlay-admin" appSettings={appSettings} setAppSettings={setAppSettings} />}
           {overlayState.view === 'deposit_manager' && <DepositManagerOverlay key="overlay-deposit-manager" />}
           {overlayState.view === 'edit_profile' && userData && <EditProfileOverlay key="overlay-edit-profile" user={userData} />}
@@ -4889,7 +5451,7 @@ export default function App() {
                 <InfoCard 
                   icon={TrendingUp} 
                   title="Lucro Hoje" 
-                  value={`MZN ${transactions.filter(t => t.type === 'reward').length > 0 ? (transactions.filter(t => t.type === 'reward')[0].amount || 0).toLocaleString() : '0.00'}`} 
+                  value={`MZN ${dailyRewardAmount}`} 
                   subtitle="Atualizado agora"
                 />
                 <InfoCard 
@@ -4958,40 +5520,50 @@ export default function App() {
           )}
 
           {activeTab === 'tasks' && (
-            <motion.div key="tasks" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 pt-4">
+            <motion.div key="tasks" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 pt-4 pb-32">
                <div className="flex flex-col gap-2 px-4">
                  <h2 className="text-4xl font-black uppercase tracking-tighter text-white">Missões <br /><span className="text-gold">Diárias</span></h2>
                  <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.4em] opacity-50">Geração de Capital em Tempo Real</p>
                  {activeVip > 0 && (
-                   <div className="mt-2 flex items-center justify-between bg-gold/5 border border-gold/10 p-4 rounded-2xl">
-                      <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Progresso de Hoje</span>
-                      <span className="text-sm font-black text-gold font-mono">MZN {(dailyTotal || 0).toLocaleString()} / {effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn?.toLocaleString() ?? '0'}</span>
+                   <div className="mt-4 space-y-3 bg-card-bg/40 border border-white/5 p-5 rounded-3xl">
+                      <div className="flex items-center justify-between">
+                         <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Ganhos de Hoje</span>
+                         <span className="text-xs font-black text-gold font-mono bg-gold/10 px-3 py-1 rounded-full">
+                           MZN {(dailyTotal || 0).toLocaleString()} / {effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn?.toLocaleString() ?? '0'}
+                         </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(100, ((dailyTotal || 0) / (effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn || 1)) * 100)}%` }}
+                          className="h-full bg-gold shadow-[0_0_10px_rgba(212,175,55,0.5)]"
+                        />
+                      </div>
                    </div>
                  )}
                </div>
                
-               <div className="grid gap-4 px-4 pb-12">
+               <div className="grid gap-4 px-4 pb-32">
                  {/* Special / Global Tasks */}
-                 {DAILY_TASKS.filter(t => t.vipLevel === 0).map(task => (
+                 {specialTasks.map(task => (
                    <motion.div 
                      key={task.id}
                      whileHover={{ scale: 1.02 }}
-                     className="bg-gold/10 backdrop-blur-xl border border-gold/20 p-6 rounded-[40px] flex items-center justify-between shadow-2xl group relative overflow-hidden transition-all"
+                     className="bg-gold/10 backdrop-blur-xl border border-gold/20 p-5 rounded-[32px] flex items-center justify-between shadow-2xl group relative overflow-hidden transition-all"
                    >
-                     <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-gold/50 to-transparent" />
+                     <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
                      
-                     <div className="flex items-center gap-5 relative z-10">
-                         <div className="w-14 h-14 rounded-[20px] flex items-center justify-center border bg-gold text-black border-gold/20 shadow-md">
-                           <TrendingUp className="w-6 h-6" />
+                     <div className="flex items-center gap-4 relative z-10 flex-1 min-w-0">
+                         <div className="w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center border bg-gold text-black border-gold/20 shadow-md">
+                           <TrendingUp className="w-5 h-5" />
                          </div>
-                         <div className="space-y-1">
+                         <div className="space-y-0.5 flex-1 min-w-0">
                            <div className="flex items-center gap-2">
-                             <span className="text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest bg-white text-black">ESPECIAL</span>
-                             <h4 className="font-black uppercase text-sm tracking-tight leading-none text-white">{task.title}</h4>
+                             <span className="text-[6px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest bg-white text-black shrink-0">ESPECIAL</span>
+                             <h4 className="font-black uppercase text-[13px] tracking-tight leading-none text-white truncate">{task.title}</h4>
                            </div>
                            <div className="flex items-center gap-2">
                                  <p className="font-black text-xs font-mono uppercase tracking-widest text-gold">+ MZN {task.reward?.toLocaleString() ?? '0'}</p>
-                                 <span className="text-[8px] text-white/40 font-bold uppercase tracking-widest">{task.category}</span>
                            </div>
                          </div>
                      </div>
@@ -5000,7 +5572,7 @@ export default function App() {
                        target="_blank" 
                        rel="noopener noreferrer"
                        onClick={() => handleCompleteTask(task.id, task.reward)}
-                       className="font-black px-6 py-3.5 rounded-[18px] text-[10px] uppercase tracking-widest relative z-10 transition-all gold-gradient text-white shadow-lg"
+                       className="font-black px-5 py-3 rounded-2xl text-[10px] uppercase tracking-widest relative z-10 transition-all gold-gradient text-white shadow-lg shrink-0 ml-3"
                      >
                        COLETAR
                      </a>
@@ -5027,28 +5599,28 @@ export default function App() {
                  ) : (
                    <>
                     {/* Active Tasks for Current Level */}
-                    {DAILY_TASKS.filter(t => t.vipLevel === activeVip).map(task => (
+                    {vipTasks.map(task => (
                       <motion.div 
                         key={task.id}
                         whileHover={isLimitReachedToday ? {} : { scale: 1.02 }}
-                        className={`backdrop-blur-xl border border-white/5 p-6 rounded-[40px] flex items-center justify-between shadow-2xl group relative overflow-hidden transition-all ${
+                        className={`backdrop-blur-xl border border-white/5 p-5 rounded-[32px] flex items-center justify-between shadow-2xl group relative overflow-hidden transition-all ${
                           isLimitReachedToday ? 'bg-white/5 opacity-60' : 'bg-card-bg/40'
                         }`}
                       >
                         <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-gold/10 to-transparent" />
                         
-                        <div className="flex items-center gap-5 relative z-10">
-                            <div className={`w-14 h-14 rounded-[20px] flex items-center justify-center border transition-all shadow-md ${
+                        <div className="flex items-center gap-4 relative z-10 flex-1 min-w-0">
+                            <div className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center border transition-all shadow-md ${
                               isLimitReachedToday ? 'bg-white/10 text-white/20 border-white/5' : 'bg-gold/5 text-gold border-gold/10 group-hover:bg-gold group-hover:text-white'
                             }`}>
-                              {isLimitReachedToday ? <CheckCircle2 className="w-6 h-6" /> : <TrendingUp className="w-6 h-6" />}
+                              {isLimitReachedToday ? <CheckCircle2 className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-0.5 flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest ${
+                                <span className={`text-[6px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest shrink-0 ${
                                   isLimitReachedToday ? 'bg-white/10 text-white/40' : 'bg-gold text-black'
                                 }`}>VIP {task.vipLevel}</span>
-                                <h4 className={`font-black uppercase text-sm tracking-tight leading-none ${
+                                <h4 className={`font-black uppercase text-[13px] tracking-tight leading-none truncate ${
                                   isLimitReachedToday ? 'text-white/40 italic line-through' : 'text-white/80'
                                 }`}>{task.title}</h4>
                               </div>
@@ -5064,19 +5636,19 @@ export default function App() {
                           whileTap={isLimitReachedToday ? {} : { scale: 0.95 }}
                           disabled={isLimitReachedToday}
                           onClick={() => handleCompleteTask(task.id, task.reward)} 
-                          className={`font-black px-6 py-3.5 rounded-[18px] text-[10px] uppercase tracking-widest relative z-10 transition-all ${
+                          className={`font-black px-5 py-3 rounded-2xl text-[10px] uppercase tracking-widest relative z-10 transition-all shrink-0 ml-3 ${
                             isLimitReachedToday 
                             ? 'bg-white/10 text-white/20 cursor-not-allowed border border-white/5 shadow-none' 
                             : 'gold-gradient text-white shadow-lg'
                           }`}
                         >
-                          {isLimitReachedToday ? 'CONCLUÍDO' : 'COLETAR'}
+                          {isLimitReachedToday ? 'OK' : 'COLETAR'}
                         </motion.button>
                       </motion.div>
                     ))}
 
                     {/* Preview of next level tasks */}
-                    {DAILY_TASKS.filter(t => t.vipLevel === activeVip + 1 && effectiveVipLevels.find(v => v.id === activeVip + 1)?.available).map(task => (
+                    {nextLevelTasks.map(task => (
                       <div 
                         key={task.id}
                         className="bg-white/5 border border-white/5 p-6 rounded-[40px] flex items-center justify-between shadow-sm opacity-50 relative overflow-hidden"
@@ -5132,7 +5704,7 @@ export default function App() {
                <div className="grid gap-6">
                  {effectiveVipLevels.filter(v => v.available).map(level => (
                    <React.Fragment key={level.id}>
-                     <VipCard level={level} status={activeVip === level.id ? 'active' : 'available'} onActivate={handleActivateVip} />
+                     <VipCard level={level} status={activeVip === level.id ? 'active' : activeVip > level.id ? 'passed' : 'available'} onActivate={handleActivateVip} />
                    </React.Fragment>
                  ))}
                </div>
@@ -5427,11 +5999,17 @@ export default function App() {
                   </div>
                </div>
 
+               {/* Video Trailer Section */}
+               <div className="py-2">
+                 <VideoTrailer />
+               </div>
+
                {/* Operations Grid */}
                <div className="grid grid-cols-2 gap-4">
                   {[
                     { label: t('withdraw'), icon: Wallet, action: () => openOverlay('withdraw'), color: "bg-blue-500/10 text-blue-500" },
                     { label: t('records'), icon: ClipboardList, action: () => openOverlay('records'), color: "bg-purple-500/10 text-purple-500" },
+                    { label: "Mensagens", icon: MessageSquare, action: () => openOverlay('notifications'), color: "bg-green-500/10 text-green-500" },
                     { label: "Suporte", icon: Headphones, action: () => openOverlay('support'), color: "bg-cyan-500/10 text-cyan-500" },
                     { label: "Empresa", icon: Building2, action: () => openOverlay('about'), color: "bg-gold/10 text-gold" },
                     { label: "Painel Admin", icon: ShieldCheck, action: () => openOverlay('admin'), color: "bg-red-500/10 text-red-500", hide: !isAdmin }
