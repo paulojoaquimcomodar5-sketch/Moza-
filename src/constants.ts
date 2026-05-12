@@ -17,7 +17,14 @@ import {
   CheckCircle2,
   TrendingUp,
   Star,
-  Gamepad2
+  Gamepad2,
+  Diamond,
+  Gem,
+  Crown,
+  Sparkles,
+  Zap,
+  Flame,
+  Orbit
 } from "lucide-react";
 
 export const QUICK_ACTIONS = [
@@ -137,6 +144,8 @@ export const VIP_LEVELS = [
     investment: 700, 
     dailyReturn: 36,
     isPremium: true,
+    icon: Award,
+    color: 'from-blue-400 to-blue-600',
     benefits: ['Acesso a tarefas básicas', 'Saque antecipado', 'Suporte prioritário']
   },
   { 
@@ -146,6 +155,8 @@ export const VIP_LEVELS = [
     investment: 2500, 
     dailyReturn: 145,
     isPremium: false,
+    icon: ShieldCheck,
+    color: 'from-purple-400 to-purple-600',
     benefits: ['Comissões de rede +5%', 'Tarefas exclusivas', 'Bónus de ativação']
   },
   { 
@@ -155,6 +166,8 @@ export const VIP_LEVELS = [
     investment: 8000, 
     dailyReturn: 520,
     isPremium: false,
+    icon: Trophy,
+    color: 'from-emerald-400 to-emerald-600',
     benefits: ['Gerente de conta VIP', 'Retornos diários altos', 'Certificado de investidor']
   },
   { 
@@ -164,6 +177,8 @@ export const VIP_LEVELS = [
     investment: 35000, 
     dailyReturn: 2800,
     isPremium: false,
+    icon: Diamond,
+    color: 'from-cyan-400 to-cyan-600',
     benefits: ['Participação nos lucros', 'Acesso total a Caixa Sorte', 'Eventos exclusivos']
   },
   { 
@@ -173,6 +188,8 @@ export const VIP_LEVELS = [
     investment: 150000, 
     dailyReturn: 12500,
     isPremium: false,
+    icon: Gem,
+    color: 'from-gold via-yellow-500 to-gold',
     benefits: ['Retorno Máximo', 'Saques Ilimitados', 'Acesso Prioritário Global', 'Bónus de Rede 15%']
   },
   { 
@@ -182,6 +199,8 @@ export const VIP_LEVELS = [
     investment: 500000, 
     dailyReturn: 45000,
     isPremium: false,
+    icon: Crown,
+    color: 'from-gray-300 via-white to-gray-400',
     benefits: ['Gestor VIP 24/7', 'Eventos Internacionais', 'Cartão Metal Exclusivo']
   },
   { 
@@ -191,6 +210,8 @@ export const VIP_LEVELS = [
     investment: 1500000, 
     dailyReturn: 150000,
     isPremium: false,
+    icon: Sparkles,
+    color: 'from-blue-200 via-blue-400 to-blue-200',
     benefits: ['Participação em Dividendos', 'Viagem Anual All-Inclusive', 'Seguro de Ativos']
   },
   { 
@@ -200,6 +221,8 @@ export const VIP_LEVELS = [
     investment: 5000000, 
     dailyReturn: 550000,
     isPremium: false,
+    icon: Zap,
+    color: 'from-yellow-300 via-orange-400 to-yellow-300',
     benefits: ['Conselho Consultivo', 'Jato Privado (1x/ano)', 'Residência Digital']
   },
   { 
@@ -209,6 +232,8 @@ export const VIP_LEVELS = [
     investment: 15000000, 
     dailyReturn: 1800000,
     isPremium: false,
+    icon: Flame,
+    color: 'from-red-400 via-orange-500 to-red-600',
     benefits: ['Governança Institucional', 'Fundo de Venture Moza', 'Imortalidade Financeira']
   },
   { 
@@ -218,6 +243,8 @@ export const VIP_LEVELS = [
     investment: 50000000, 
     dailyReturn: 7000000,
     isPremium: false,
+    icon: Orbit,
+    color: 'from-indigo-400 via-purple-500 to-pink-500',
     benefits: ['Controle de Ecossistema', 'Herança Transgeracional', 'Status Lendário']
   },
 ];

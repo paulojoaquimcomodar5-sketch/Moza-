@@ -13,6 +13,7 @@ import {
   Eye,
   EyeOff,
   ChevronRight,
+  ChevronLeft,
   Gift,
   Share2,
   ExternalLink,
@@ -74,7 +75,7 @@ import {
 import confetti from 'canvas-confetti';
 
 // --- Overlay Management Context ---
-type OverlayType = 'none' | 'deposit' | 'withdraw' | 'records' | 'box' | 'support' | 'market' | 'about' | 'ai_helper' | 'live_chat' | 'education' | 'loan' | 'admin' | 'deposit_manager' | 'edit_profile' | 'mines_tutorial' | 'receipt' | 'notifications';
+type OverlayType = 'none' | 'deposit' | 'withdraw' | 'records' | 'box' | 'support' | 'market' | 'about' | 'ai_helper' | 'live_chat' | 'education' | 'loan' | 'admin' | 'deposit_manager' | 'edit_profile' | 'mines_tutorial' | 'receipt' | 'notifications' | 'yields';
 
 interface OverlayContextType {
   view: OverlayType;
@@ -885,13 +886,33 @@ const HomeBanner = React.memo(({ onBoxClick, appSettings }: { onBoxClick: () => 
               />
             ))}
           </div>
-          {banners[current].action && (
-            <div className="absolute top-8 right-8">
-              <div className="w-8 h-8 rounded-xl bg-gold/20 flex items-center justify-center border border-gold/30">
-                <ChevronRight className="w-4 h-4 text-gold" />
+          <div className="absolute top-8 right-8 flex gap-2">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                const text = "Junta-te à Moza Invest e começa a lucrar! O investimento mais seguro de Moçambique.";
+                if (navigator.share) {
+                  navigator.share({
+                    title: 'Moza Invest',
+                    text: text,
+                    url: window.location.href
+                  }).catch(() => {});
+                } else {
+                  alert("Use o botão de partilha do seu navegador ou copie o link.");
+                }
+              }}
+              className="w-10 h-10 rounded-xl bg-card-bg/40 backdrop-blur-md flex items-center justify-center border border-white/10 text-white/40 hover:text-gold hover:border-gold/30 transition-all"
+            >
+              <Share2 className="w-5 h-5" />
+            </motion.button>
+            {banners[current].action && (
+              <div className="w-10 h-10 rounded-xl bg-gold/20 flex items-center justify-center border border-gold/30">
+                <ChevronRight className="w-5 h-5 text-gold" />
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </motion.div>
       </AnimatePresence>
     </motion.div>
@@ -1034,8 +1055,23 @@ const VipCard = React.memo(({ level, status, onActivate }: { level: any, status:
     
     <div className="flex justify-between items-start relative z-20">
       <div className="flex gap-5 items-center">
-        <div className={`w-18 h-18 rounded-[24px] flex items-center justify-center text-white font-black text-3xl shadow-lg border-4 border-white/5 ${status === 'active' ? 'gold-gradient' : status === 'passed' ? 'bg-white/10 text-white/20' : 'bg-card-bg/40 text-white/30'}`}>
-          {level.id}
+        <div className={`w-20 h-20 rounded-[28px] flex items-center justify-center text-white shadow-2xl border-4 border-white/10 relative overflow-hidden ${
+          status === 'active' ? 'gold-gradient' : 
+          status === 'passed' ? 'bg-white/10 text-white/20' : 
+          `bg-gradient-to-br ${level.color || 'from-slate-700 to-slate-900'} shadow-lg`
+        }`}>
+          {level.icon ? (
+            <level.icon className={`w-10 h-10 ${status === 'active' ? 'text-white' : 'text-white/80'}`} strokeWidth={2.5} />
+          ) : (
+            <span className="font-black text-3xl font-mono">{level.id}</span>
+          )}
+          {status === 'active' && (
+            <motion.div 
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 10, ease: "linear" }}
+              className="absolute inset-0 border-2 border-white/20 rounded-full scale-125 border-dashed"
+            />
+          )}
         </div>
         <div>
           <div className="flex items-center gap-2">
@@ -1168,9 +1204,7 @@ const DepositOverlay = React.memo(({ onConfirm, settings }: { onConfirm: (amt: n
   const canConfirm = amount && Number(amount) >= 100 && (proof || transactionId) && !isUploading;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(currentMethodData?.number || '');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    alert("Cópia direta desativada por segurança.");
   };
 
   return (
@@ -1422,11 +1456,7 @@ const ReceiptOverlay = ({ data }: { data: { amount: number, method: string, tran
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
-    if (data.transactionId) {
-      navigator.clipboard.writeText(data.transactionId);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    alert("Cópia protegida.");
   };
 
   return (
@@ -1500,19 +1530,98 @@ const ReceiptOverlay = ({ data }: { data: { amount: number, method: string, tran
 };
 
 
-const WithdrawOverlay = React.memo(({ balance, firstDepositAt, onConfirm }: { balance: number, firstDepositAt: any, onConfirm: (amt: number, method: string) => void, key?: any }) => {
+const YieldOverlay = React.memo(({ balance, activeVip, appSettings, vipLevels }: { balance: number, activeVip: number, appSettings: any, vipLevels: any[] }) => {
+  const { closeOverlay } = useOverlay();
+  const yieldRate = appSettings.yieldPercentage ?? 12.5;
+  const monthlyYield = (balance * yieldRate) / 100;
+  const dailyYield = monthlyYield / 30;
+  const vipDaily = activeVip > 0 ? (vipLevels.find(v => v.id === activeVip)?.dailyReturn || 0) : 0;
+  const totalDaily = dailyYield + vipDaily;
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col p-6 overflow-y-auto"
+    >
+      <div className="flex items-center justify-between mb-10">
+        <button onClick={closeOverlay} className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 text-white/40"><ChevronLeft className="w-6 h-6" /></button>
+        <h2 className="text-sm font-black text-white uppercase tracking-[0.3em] font-mono">Rendimentos</h2>
+        <div className="w-12 h-12" />
+      </div>
+
+      <div className="space-y-8">
+        <div className="bg-white/5 border border-white/5 p-8 rounded-[48px] relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-8 opacity-[0.03]">
+             <TrendingUp className="w-32 h-32 text-gold" />
+          </div>
+          <div className="relative z-10 space-y-2">
+             <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em]">PATRIMÓNIO TOTAL</span>
+             <h3 className="text-4xl font-black text-white font-mono tracking-tighter">MZN {balance.toLocaleString()}</h3>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+           <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-4">
+              <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                 <div>
+                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Base de Rendimento</p>
+                    <p className="text-xs font-black text-gold">Saldo Investido</p>
+                 </div>
+                 <div className="text-right">
+                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Taxa Mensal</p>
+                    <p className="text-xs font-black text-green-400">+{yieldRate}%</p>
+                 </div>
+              </div>
+              <div className="space-y-4 pt-2">
+                 <div className="flex justify-between text-[11px] font-bold">
+                    <span className="text-white/40 uppercase tracking-widest">Lucro Diário (Saldo)</span>
+                    <span className="text-white font-mono">MZN {dailyYield.toLocaleString()}</span>
+                 </div>
+                 <div className="flex justify-between text-[11px] font-bold">
+                    <span className="text-white/40 uppercase tracking-widest">Lucro Diário (Mission)</span>
+                    <span className="text-white font-mono">MZN {vipDaily.toLocaleString()}</span>
+                 </div>
+                 <div className="pt-4 border-t border-white/5 flex justify-between items-center">
+                    <span className="text-[10px] font-black text-gold uppercase tracking-widest">Ganhos Totais/Dia</span>
+                    <span className="text-xl font-black text-white font-mono">MZN {totalDaily.toLocaleString()}</span>
+                 </div>
+              </div>
+           </div>
+
+
+        </div>
+
+        <div className="bg-white/5 p-6 rounded-[32px] border border-white/5">
+           <h4 className="text-[10px] font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+              <ShieldCheck className="w-3.5 h-3.5 text-gold" />
+              Garantia Digital
+           </h4>
+           <div className="space-y-2">
+             <p className="text-[9px] text-white/40 font-medium leading-relaxed uppercase tracking-widest">
+                Rendimentos creditados diariamente às 00:00 UTC. Taxa média de {yieldRate}% mensal sobre o saldo captativo.
+             </p>
+             <button onClick={closeOverlay} className="w-full bg-white/5 py-4 rounded-2xl text-[9px] font-black text-white/60 uppercase tracking-widest border border-white/5 mt-4">Fechar Relatório</button>
+           </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
+
+const WithdrawOverlay = React.memo(({ balance, firstDepositAt, withdrawLockDays = 60, onConfirm }: { balance: number, firstDepositAt: any, withdrawLockDays?: number, onConfirm: (amt: number, method: string) => void, key?: any }) => {
   const { closeOverlay } = useOverlay();
   const [amount, setAmount] = useState('');
   const [phone, setPhone] = useState('258');
   const [method, setMethod] = useState('mpesa');
 
   const getRemainingDays = () => {
-    if (!firstDepositAt) return 60;
+    if (!firstDepositAt) return withdrawLockDays;
     const firstDepositDate = firstDepositAt?.seconds ? new Date(firstDepositAt.seconds * 1000) : new Date(firstDepositAt);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - firstDepositDate.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return Math.max(0, 60 - diffDays);
+    return Math.max(0, withdrawLockDays - diffDays);
   };
 
   const remainingDays = getRemainingDays();
@@ -1528,15 +1637,15 @@ const WithdrawOverlay = React.memo(({ balance, firstDepositAt, onConfirm }: { ba
       </div>
 
       <div className="space-y-8">
-        {remainingDays > 0 && (
+        {(remainingDays > 0 && withdrawLockDays > 0) && (
           <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-[32px] flex items-center gap-4">
             <Lock className="w-8 h-8 text-red-500 shrink-0" />
             <div>
               <p className="text-[10px] font-black text-white uppercase tracking-widest leading-tight">Regra de Segurança MOZA</p>
               <p className="text-[9px] text-white/60 font-medium uppercase tracking-widest mt-1">
                 {firstDepositAt 
-                  ? `Saque permitido após 60 dias do primeiro depósito. Faltam ${remainingDays} dias.`
-                  : 'Saque permitido apenas 60 dias após o seu primeiro depósito realizado.'
+                  ? `Saque permitido após ${withdrawLockDays} dias do primeiro depósito. Faltam ${remainingDays} dias.`
+                  : `Saque permitido apenas ${withdrawLockDays} dias após o seu primeiro depósito realizado.`
                 }
               </p>
             </div>
@@ -2868,10 +2977,18 @@ const DepositManagerOverlay = ({}: { key?: any }) => {
         
         if (status === 'completed') {
           if (userSnap.exists()) {
-            transaction.update(userRef, { 
+            const userData = userSnap.data();
+            const updateData: any = { 
               balance: increment(amount), 
               updatedAt: serverTimestamp() 
-            });
+            };
+            
+            // Set firstDepositAt if it doesn't exist
+            if (!userData.firstDepositAt) {
+              updateData.firstDepositAt = serverTimestamp();
+            }
+
+            transaction.update(userRef, updateData);
           }
         }
       });
@@ -3680,6 +3797,33 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
                        </div>
                     </div>
                     
+                    <div className="grid grid-cols-2 gap-4 bg-black/20 p-4 rounded-[20px] border border-white/5">
+                      <div className="space-y-0.5">
+                        <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Dias Ativos</p>
+                        <p className="text-xs font-black text-gold">
+                          {u.firstDepositAt ? Math.floor(Math.abs(new Date().getTime() - (u.firstDepositAt?.seconds ? u.firstDepositAt.seconds * 1000 : new Date(u.firstDepositAt).getTime())) / (1000 * 86400)) : 0} Dias
+                        </p>
+                      </div>
+                      <div className="space-y-0.5 text-right">
+                        <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Saque Disponível</p>
+                        <p className={`text-xs font-black ${(() => {
+                           const lockD = appSettings.withdrawLockDays ?? 60;
+                           if (!u.firstDepositAt) return 'text-red-500';
+                           const diffD = Math.ceil(Math.abs(new Date().getTime() - (u.firstDepositAt?.seconds ? u.firstDepositAt.seconds * 1000 : new Date(u.firstDepositAt).getTime())) / (1000 * 86400));
+                           return diffD >= lockD || lockD === 0 ? 'text-green-500' : 'text-orange-500';
+                        })()}`}>
+                          {(() => {
+                             const lockDLabel = appSettings.withdrawLockDays ?? 60;
+                             if (lockDLabel === 0) return 'IMEDIATO';
+                             if (!u.firstDepositAt) return `EM ${lockDLabel} DIAS`;
+                             const diffDL = Math.ceil(Math.abs(new Date().getTime() - (u.firstDepositAt?.seconds ? u.firstDepositAt.seconds * 1000 : new Date(u.firstDepositAt).getTime())) / (1000 * 86400));
+                             const rem = Math.max(0, lockDLabel - diffDL);
+                             return rem === 0 ? 'DESBLOQUEADO' : `FALTAM ${rem} DIAS`;
+                          })()}
+                        </p>
+                      </div>
+                    </div>
+                    
                     <div className="flex gap-2 pt-2 border-t border-white/5">
                        <div className="flex-1 bg-card-bg/40 hover:bg-card-bg/60 text-gold py-3 rounded-xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest border border-white/10 transition-all relative group">
                          <Shield className="w-3 h-3" /> 
@@ -4196,11 +4340,16 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
               {VIP_LEVELS.map((level) => (
                 <div key={level.id} className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
                   <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-black text-white">{level.name} - {level.badge}</span>
-                      <span className={`text-[8px] font-black uppercase tracking-widest ${appSettings[`vip${level.id}_available`] ?? level.id <= 5 ? 'text-green-500' : 'text-red-500'}`}>
-                        {appSettings[`vip${level.id}_available`] ?? level.id <= 5 ? 'Disponível' : 'Indisponível'}
-                      </span>
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 bg-gradient-to-br ${level.color || 'from-slate-700 to-slate-900'} text-white shadow-lg shadow-black/20`}>
+                        {level.icon ? <level.icon className="w-5 h-5" /> : level.id}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-black text-white">{level.name} - {level.badge}</span>
+                        <span className={`text-[8px] font-black uppercase tracking-widest ${appSettings[`vip${level.id}_available`] ?? level.id <= 5 ? 'text-green-500' : 'text-red-500'}`}>
+                          {appSettings[`vip${level.id}_available`] ?? level.id <= 5 ? 'Disponível' : 'Indisponível'}
+                        </span>
+                      </div>
                     </div>
                     <button 
                       onClick={() => handleUpdateSettings({ [`vip${level.id}_available`]: !(appSettings[`vip${level.id}_available`] ?? level.id <= 5) })}
@@ -4388,6 +4537,53 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
              <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
                <div className="flex items-center justify-between">
                  <div>
+                   <h3 className="font-black text-white uppercase tracking-tight">Bloqueio de Saque</h3>
+                   <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest">DIAS DE ESPERA APÓS 1º DEPÓSITO</p>
+                 </div>
+                 <div className="flex items-center gap-2">
+                   <input 
+                     type="number"
+                     value={appSettings.withdrawLockDays ?? 60}
+                     onChange={(e) => setAppSettings({ ...appSettings, withdrawLockDays: Number(e.target.value) })}
+                     className="w-16 bg-black/20 border border-white/10 rounded-xl p-2 text-xs font-black text-gold text-center outline-none"
+                   />
+                   <button 
+                     onClick={() => handleUpdateSettings({ withdrawLockDays: appSettings.withdrawLockDays })}
+                     className="bg-gold/10 text-gold p-2 rounded-xl border border-gold/20 hover:bg-gold/20"
+                   >
+                     <Check className="w-4 h-4" />
+                   </button>
+                 </div>
+               </div>
+             </div>
+
+             <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
+               <div className="flex items-center justify-between">
+                 <div>
+                   <h3 className="font-black text-white uppercase tracking-tight">Taxa de Rendimento</h3>
+                   <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest">PERCENTAGEM MENSAL SOBRE SALDO (%)</p>
+                 </div>
+                 <div className="flex items-center gap-2">
+                   <input 
+                     type="number"
+                     step="0.1"
+                     value={appSettings.yieldPercentage ?? 12.5}
+                     onChange={(e) => setAppSettings({ ...appSettings, yieldPercentage: Number(e.target.value) })}
+                     className="w-16 bg-black/20 border border-white/10 rounded-xl p-2 text-xs font-black text-gold text-center outline-none"
+                   />
+                   <button 
+                     onClick={() => handleUpdateSettings({ yieldPercentage: appSettings.yieldPercentage })}
+                     className="bg-gold/10 text-gold p-2 rounded-xl border border-gold/20 hover:bg-gold/20"
+                   >
+                     <Check className="w-4 h-4" />
+                   </button>
+                 </div>
+               </div>
+             </div>
+
+             <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
+               <div className="flex items-center justify-between">
+                 <div>
                    <h3 className="font-black text-white uppercase tracking-tight">Modo Manutenção</h3>
                    <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest">FECHA O APP PARA TODOS UTILIZADORES</p>
                  </div>
@@ -4564,6 +4760,8 @@ export default function App() {
     maintenanceEstimate: '2 HORAS',
     bannerText: 'O FUTURO DO INVESTIMENTO', 
     bannerHighlight: 'MOZA DIGITAL ASSETS',
+    withdrawLockDays: 60,
+    yieldPercentage: 12.5,
     banner1_title: '',
     banner1_highlight: '',
     banner1_text: '',
@@ -5286,7 +5484,7 @@ export default function App() {
           }} />}
           {overlayState.view === 'deposit' && <DepositOverlay key="overlay-deposit" onConfirm={handleDeposit} settings={appSettings} />}
           {overlayState.view === 'receipt' && <ReceiptOverlay key="overlay-receipt" data={overlayState.data} />}
-          {overlayState.view === 'withdraw' && <WithdrawOverlay key="overlay-withdraw" balance={balance} firstDepositAt={firstDepositAt} onConfirm={handleWithdraw} />}
+          {overlayState.view === 'withdraw' && <WithdrawOverlay key="overlay-withdraw" balance={balance} firstDepositAt={firstDepositAt} withdrawLockDays={appSettings.withdrawLockDays} onConfirm={handleWithdraw} />}
           {overlayState.view === 'loan' && <LoanOverlay key="overlay-loan" balance={balance} activeVip={activeVip} onConfirm={handleLoan} />}
           {overlayState.view === 'records' && <RecordsOverlay key="overlay-records" transactions={transactions} />}
           {overlayState.view === 'support' && <SupportOverlay key="overlay-support" />}
@@ -5296,6 +5494,7 @@ export default function App() {
           {overlayState.view === 'about' && <AboutOverlay key="overlay-about" />}
           {overlayState.view === 'education' && <EducationOverlay key="overlay-education" />}
           {overlayState.view === 'notifications' && <NotificationsOverlay key="overlay-notifications" />}
+          {overlayState.view === 'yields' && <YieldOverlay key="overlay-yields" balance={balance} activeVip={activeVip} appSettings={appSettings} vipLevels={effectiveVipLevels} />}
           {overlayState.view === 'admin' && <AdminOverlay key="overlay-admin" appSettings={appSettings} setAppSettings={setAppSettings} />}
           {overlayState.view === 'deposit_manager' && <DepositManagerOverlay key="overlay-deposit-manager" />}
           {overlayState.view === 'edit_profile' && userData && <EditProfileOverlay key="overlay-edit-profile" user={userData} />}
@@ -5450,18 +5649,21 @@ export default function App() {
               <div className="grid grid-cols-2 gap-4">
                 <InfoCard 
                   icon={TrendingUp} 
-                  title="Lucro Hoje" 
-                  value={`MZN ${dailyRewardAmount}`} 
-                  subtitle="Atualizado agora"
+                  title="Lucro de Hoje" 
+                  value={`MZN ${Number(dailyRewardAmount).toLocaleString()}`} 
+                  subtitle="Ganhos das Missões"
                 />
                 <InfoCard 
-                  icon={PieChartIcon} 
-                  title="Rendimento" 
-                  value="12.5%" 
-                  colorClass="text-blue-500" 
-                  subtitle="Média mensal"
+                  icon={Zap} 
+                  title="Rendimento Est." 
+                  value={`${(appSettings.yieldPercentage ?? 12.5)}%`}
+                  colorClass="text-purple-400" 
+                  subtitle={`~ MZN ${((balance * (appSettings.yieldPercentage ?? 12.5)) / 3000).toLocaleString()}/dia`}
+                  onClick={() => openOverlay('yields')}
                 />
               </div>
+
+
 
                {/* Navigation Grid */}
               {loanBalance > 0 && (
@@ -5733,17 +5935,8 @@ export default function App() {
                      </div>
                      
                      <div className="w-full space-y-4 pt-2">
-                        <div className="bg-white/5 border border-white/5 px-6 py-5 rounded-2xl font-mono font-black text-lg text-gold text-center tracking-[0.2em] shadow-inner relative group/code">
+                        <div className="bg-white/5 border border-white/5 px-6 py-5 rounded-2xl font-mono text-gold text-center shadow-inner relative group/code premium-letters-glow">
                            {inviteCode || 'MOZA-VIP'}
-                           <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText(inviteCode);
-                              alert("Código copiado!");
-                            }}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-gold transition-colors"
-                           >
-                             <Copy className="w-4 h-4" />
-                           </button>
                         </div>
                         <motion.button 
                           whileHover={{ scale: 1.02 }}
@@ -5759,8 +5952,7 @@ export default function App() {
                                 }
                               }
                             } else {
-                              navigator.clipboard.writeText(`${text} ${window.location.href}`);
-                              alert("Link de convite copiado!");
+                              alert("Use a função de partilha do sistema.");
                             }
                           }}
                           className="w-full gold-gradient text-white py-5 rounded-[22px] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-gold/20"
@@ -5937,42 +6129,75 @@ export default function App() {
                      <p className="text-white/60 font-black text-xs font-mono tracking-widest">+{userPhone}</p>
                    </div>
 
-                   <div className="flex flex-col items-center gap-1 mt-2 p-4 bg-white/5 rounded-[24px] border border-white/5 w-full max-w-[200px]">
-                      <span className="text-[8px] font-black text-white/40 uppercase tracking-widest opacity-50">CÓDIGO DE CONVITE</span>
+                   <div className="flex flex-col items-center gap-1 mt-2 p-4 bg-white/5 rounded-[24px] border border-white/5 w-full max-w-[200px] premium-letters-glow">
+                      <span className="text-[8px] font-black text-white/40 uppercase tracking-widest opacity-50">CÓDIGO EXCLUSIVO</span>
                       <div className="flex items-center gap-3">
-                        <span className="text-md font-black text-gold font-mono tracking-[0.2em]">{inviteCode || '...'}</span>
-                        <button 
-                          onClick={() => {
-                            navigator.clipboard.writeText(inviteCode);
-                            alert('Código copiado!');
-                          }}
-                          className={`${!inviteCode ? 'opacity-30 pointer-events-none' : ''} text-white/40 hover:text-gold transition-colors`}
-                        >
-                          <Share2 className="w-3 h-3" />
-                        </button>
+                        <span className="text-xl font-black text-gold font-mono">{inviteCode || '...'}</span>
                       </div>
                    </div>
                  </div>
                </div>
 
               {/* Asset Overview Card */}
-               <div className="bg-white/5 backdrop-blur-3xl rounded-[48px] p-8 border border-white/5 shadow-2xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-8 opacity-10">
-                    <TrendingUp className="w-24 h-24 text-gold" />
+               <div className="bg-white/5 backdrop-blur-3xl rounded-[48px] p-8 border border-white/5 shadow-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-all duration-700">
+                    <TrendingUp className="w-32 h-32 text-gold group-hover:scale-110 transition-transform" />
                   </div>
-                  <div className="relative z-10 space-y-6">
+                  
+                  <div className="relative z-10 flex flex-col gap-8">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em]">{t('balance')}</span>
-                      <div className="bg-white/5 px-3 py-1 rounded-full flex items-center gap-2 border border-white/10">
-                        <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">Ativo</span>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em]">{t('balance')}</span>
+                        <div className="text-4xl font-black text-white font-mono tracking-tighter premium-letters-glow flex items-baseline gap-1">
+                          <span className="text-xs text-gold/60 font-bold tracking-normal mr-1">MZN</span>
+                          {(balance || 0).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="bg-gold/10 px-4 py-2 rounded-2xl flex items-center gap-3 border border-gold/20 shadow-inner">
+                          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                          <span className="text-[9px] font-black text-gold uppercase tracking-widest">Online</span>
+                        </div>
+                        {activeVip > 0 && (
+                          <div className={`px-4 py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-lg bg-gradient-to-br ${(effectiveVipLevels.find(v => v.id === activeVip)?.color) || 'from-gold to-yellow-600'}`}>
+                            {(() => {
+                              const VIcon = effectiveVipLevels.find(v => v.id === activeVip)?.icon || ShieldCheck;
+                              return <VIcon className="w-3 h-3 text-white" />;
+                            })()}
+                            <span className="text-[9px] font-black text-white uppercase tracking-widest">VIP {activeVip}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <div className="text-4xl font-black text-white font-mono tracking-tighter">
-                        MZN {(balance || 0).toLocaleString()}
+
+                    <div className="grid grid-cols-1 gap-4 pt-4 border-t border-white/5">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                           <div className="w-4 h-4 rounded bg-gold/10 flex items-center justify-center">
+                             <TrendingUp className="w-2.5 h-2.5 text-gold" />
+                           </div>
+                           <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Lucro de Hoje</span>
+                        </div>
+                        <p className="text-sm font-black text-white font-mono tracking-tight flex items-baseline gap-1.5">
+                          + {((balance * (appSettings.yieldPercentage ?? 12.5) / 100) / 30 + (activeVip > 0 ? (effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn || 0) : 0)).toLocaleString()}
+                          <span className="text-[9px] text-green-400 font-black">
+                            ({(balance > 0 ? ((((balance * (appSettings.yieldPercentage ?? 12.5) / 100) / 30) + (activeVip > 0 ? (effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn || 0) : 0)) / balance * 100).toFixed(2) : '0.00')}%)
+                          </span>
+                        </p>
                       </div>
-                      <p className="text-[10px] text-gold font-bold uppercase tracking-[0.2em]">+ {((balance * 0.125) / 30).toFixed(2)} MZN HOJE</p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 p-4 bg-white/5 rounded-3xl border border-white/5">
+                        <div className="flex items-center gap-3">
+                           <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20">
+                             <PieChartIcon className="w-4 h-4" />
+                           </div>
+                           <div className="space-y-0.5">
+                             <p className="text-[7px] font-black text-white/30 uppercase tracking-widest">Taxa de Rendimento</p>
+                             <p className="text-[10px] font-black text-white uppercase italic">Variable Compound</p>
+                           </div>
+                        </div>
+                        <p className="text-xs font-black text-gold font-mono">+{appSettings.yieldPercentage ?? 12.5}% MÉDIA</p>
                     </div>
                   </div>
                </div>
@@ -6048,16 +6273,24 @@ export default function App() {
                    <ShieldCheck className="w-5 h-5 text-gold" />
                    <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Privacidade & Segurança</h4>
                  </div>
-                 <div className="bg-white/5 rounded-[40px] border border-white/5 overflow-hidden divide-y divide-white/5 shadow-2xl">
+                 <div className="bg-white/10 rounded-[40px] border border-white/5 overflow-hidden divide-y divide-white/5 shadow-2xl">
                     {[
-                      { l: "Nível VIP Atual", v: `VIP ${activeVip}`, icon: Star },
+                      { 
+                        l: "Nível VIP Atual", 
+                        v: activeVip > 0 ? `VIP ${activeVip}` : 'STARTER', 
+                        icon: activeVip > 0 ? (effectiveVipLevels.find(v => v.id === activeVip)?.icon || Star) : User,
+                        customColor: activeVip > 0 ? (effectiveVipLevels.find(v => v.id === activeVip)?.color) : null
+                      },
+                      { l: "Lucro Total Acumulado", v: `MZN ${(balance * 0.45).toLocaleString()}`, icon: TrendingUp, color: "text-gold" },
                       { l: "Membros Diretos", v: TEAM_LEVELS[0].count.toString(), icon: Users },
-                      { l: "Data de Adesão", v: "Maio 2026", icon: CheckCircle2 },
+                      { l: "Rendimento Diário", v: `+${activeVip > 0 ? (effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn || 0).toLocaleString() : '0'} MZN`, icon: Zap, color: "text-green-400" },
                       { l: "Status Conta", v: "Verificada", icon: ShieldCheck, color: "text-green-400" }
                     ].map((s, i) => (
-                      <div key={i} className="px-8 py-5 flex justify-between items-center group hover:bg-white/5 transition-colors">
+                      <div key={i} className="px-8 py-5 flex justify-between items-center group hover:bg-white/10 transition-all">
                          <div className="flex items-center gap-4">
-                            <s.icon className="w-4 h-4 text-gold opacity-50" />
+                            <div className={`w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 group-hover:border-gold/30 group-hover:bg-gold/10 transition-all ${s.customColor ? `bg-gradient-to-br ${s.customColor}` : ''}`}>
+                              <s.icon className={`w-5 h-5 ${s.customColor ? 'text-white' : 'text-gold opacity-50 group-hover:opacity-100'}`} />
+                            </div>
                             <span className="text-[10px] text-white/40 font-black uppercase tracking-widest">{s.l}</span>
                          </div>
                          <span className={`text-xs font-black uppercase tracking-widest ${s.color || 'text-white'}`}>{s.v}</span>
