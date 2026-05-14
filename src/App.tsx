@@ -10,6 +10,7 @@ import {
   Home,
   Phone,
   Lock,
+  Unlock,
   Eye,
   EyeOff,
   ChevronRight,
@@ -963,15 +964,17 @@ const ActionItem = React.memo(({ icon: Icon, label, onClick }: { icon: LucideIco
       whileHover={{ y: -5, scale: 1.02 }}
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
-      className="bg-card-bg/40 backdrop-blur-3xl aspect-[4/5] rounded-[24px] flex flex-col items-center justify-center gap-2.5 border border-white/5 hover:border-gold/30 transition-all group shadow-2xl overflow-hidden relative p-2"
+      className="bg-card-bg/40 backdrop-blur-3xl aspect-[4/5] rounded-[28px] flex flex-col items-center pt-4 sm:pt-6 pb-2 gap-2 border border-white/5 hover:border-gold/30 transition-all group shadow-2xl overflow-hidden relative p-1.5"
     >
       <div className="absolute inset-0 bg-gold/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-card-bg/40 flex items-center justify-center relative z-10 transition-all duration-500 group-hover:bg-gold/10 shadow-inner">
-        <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-gold/80 transition-transform group-hover:scale-110 group-hover:text-gold" />
+      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl sm:rounded-full bg-card-bg/40 flex items-center justify-center relative z-10 transition-all duration-500 group-hover:bg-gold/10 shadow-inner flex-shrink-0">
+        <Icon className="w-5 h-5 sm:w-7 sm:h-7 text-gold/80 transition-transform group-hover:scale-110 group-hover:text-gold" />
       </div>
-      <span className="text-[9px] font-black text-white/60 group-hover:text-white uppercase tracking-[0.15em] leading-tight text-center px-0.5 transition-colors relative z-10 break-words w-full">
-        {label}
-      </span>
+      <div className="flex-1 flex items-center justify-center w-full px-1 relative z-10">
+        <span className="text-[8px] sm:text-[9px] font-black text-white/60 group-hover:text-white uppercase tracking-[0.1em] leading-tight text-center transition-colors break-words w-full">
+          {label}
+        </span>
+      </div>
     </motion.button>
   );
 });
@@ -1609,22 +1612,170 @@ const YieldOverlay = React.memo(({ balance, activeVip, appSettings, vipLevels }:
 });
 
 
-const WithdrawOverlay = React.memo(({ balance, firstDepositAt, withdrawLockDays = 60, onConfirm }: { balance: number, firstDepositAt: any, withdrawLockDays?: number, onConfirm: (amt: number, method: string) => void, key?: any }) => {
+const WithdrawOverlay = React.memo(({ balance, user, appSettings, onConfirm }: { balance: number, user: any, appSettings: any, onConfirm: (amt: number, method: string, phone: string) => void, key?: any }) => {
   const { closeOverlay } = useOverlay();
   const [amount, setAmount] = useState('');
-  const [phone, setPhone] = useState('258');
+  const [phone, setPhone] = useState(user.phone || '258');
   const [method, setMethod] = useState('mpesa');
+  const [isProcessingLocal, setIsProcessingLocal] = useState(false);
+  const [processStep, setProcessStep] = useState(0);
+
+  // Auto-switch method based on phone number prefix for better UX
+  useEffect(() => {
+    const cleanPhone = phone.replace(/\s+/g, '');
+    if (cleanPhone.includes('84') || cleanPhone.includes('85')) {
+      setMethod('mpesa');
+    } else if (cleanPhone.includes('86') || cleanPhone.includes('87')) {
+      setMethod('emola');
+    }
+  }, [phone]);
+
+  const withdrawLockDays = user.withdrawLockDays !== undefined ? user.withdrawLockDays : (appSettings.withdrawLockDays ?? 60);
+  const firstDepositAt = user.firstDepositAt;
 
   const getRemainingDays = () => {
+    if (withdrawLockDays === 0) return 0;
     if (!firstDepositAt) return withdrawLockDays;
     const firstDepositDate = firstDepositAt?.seconds ? new Date(firstDepositAt.seconds * 1000) : new Date(firstDepositAt);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - firstDepositDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     return Math.max(0, withdrawLockDays - diffDays);
   };
 
   const remainingDays = getRemainingDays();
+  const firstDepositDate = firstDepositAt ? (firstDepositAt?.seconds ? new Date(firstDepositAt.seconds * 1000) : new Date(firstDepositAt)) : null;
+
+  const handleAction = async () => {
+    if (!amount || Number(amount) < 500) return;
+    
+    setIsProcessingLocal(true);
+    setProcessStep(1); // Validando Protocolos
+    await new Promise(r => setTimeout(r, 400));
+    
+    setProcessStep(2); // Auditando Transações
+    await new Promise(r => setTimeout(r, 500));
+    
+    setProcessStep(3); // Verificando Firewall Moza
+    await new Promise(r => setTimeout(r, 300));
+
+    if (remainingDays > 0) {
+      setProcessStep(4); // Bloqueado
+      // No alert here, we'll show it in the UI
+    } else {
+      if (!phone || phone.length < 9) {
+        alert("Por favor, insira um número de conta móvel válido.");
+        setIsProcessingLocal(false);
+        return;
+      }
+      onConfirm(Number(amount), method, phone);
+    }
+  };
+
+  const steps = [
+    '',
+    'Validando Protocolos de Segurança...',
+    'Auditando Histórico de Transações...',
+    'Verificando Firewall do Ecossistema Moza...',
+    'Acesso Negado: Perfil em Quarentena'
+  ];
+
+  if (isProcessingLocal && processStep > 0 && processStep < 4) {
+    return (
+      <div className="fixed inset-0 z-[3000] bg-black flex flex-col items-center justify-center p-8 text-center space-y-8">
+        <div className="relative">
+          <motion.div 
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+            className="w-24 h-24 rounded-full border-4 border-gold/20 border-t-gold"
+          />
+          <motion.div 
+            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+            transition={{ repeat: Infinity, duration: 1.5 }}
+            className="absolute inset-0 bg-gold/20 blur-2xl rounded-full"
+          />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-xl font-black text-white uppercase tracking-tighter italic">Processando Saque</h3>
+          <p className="text-[10px] font-black text-gold/60 uppercase tracking-[0.3em] h-4">
+            {steps[processStep]}
+          </p>
+        </div>
+        <div className="w-48 h-1 bg-white/5 rounded-full overflow-hidden">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${(processStep / 3) * 100}%` }}
+            className="h-full bg-gold shadow-[0_0_10px_rgba(212,175,55,0.5)]"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (processStep === 4) {
+    return (
+      <div className="fixed inset-0 z-[3000] bg-black flex flex-col items-center justify-center p-8 text-center space-y-10">
+        <motion.div 
+          initial={{ scale: 0, rotate: -180 }}
+          animate={{ scale: 1, rotate: 0 }}
+          className="w-32 h-32 bg-red-500/20 rounded-[40px] flex items-center justify-center text-red-500 relative"
+        >
+          <motion.div 
+            animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+            className="absolute inset-0 bg-red-500/30 rounded-[40px] blur-2xl"
+          />
+          <Lock className="w-16 h-16 relative z-10" />
+        </motion.div>
+
+        <div className="space-y-6 max-w-sm">
+          <div className="space-y-2">
+            <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Levantamento Recusado</h3>
+            <div className="h-1 w-12 bg-red-500 mx-auto rounded-full" />
+          </div>
+
+          <motion.div
+            animate={{ 
+              x: [-1, 1, -1, 1, 0],
+              scale: [1, 1.02, 1],
+              textShadow: [
+                "0 0 0px rgba(255,0,0,0)",
+                "0 0 20px rgba(255,0,0,0.5)",
+                "0 0 0px rgba(255,0,0,0)"
+              ]
+            }}
+            transition={{ repeat: Infinity, duration: 0.5 }}
+            className="bg-red-500/10 border-2 border-red-500/30 p-8 rounded-[32px] shadow-2xl shadow-red-500/5 relative overflow-hidden"
+          >
+             <p className="text-xl font-black text-white uppercase leading-tight italic relative z-10">
+               O TEU PERFIL AINDA ESTÁ BLOQUEADO NA PARTE DO SAQUE
+             </p>
+             <motion.div 
+               animate={{ x: ['100%', '-100%'] }}
+               transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+               className="absolute top-0 bottom-0 w-full bg-gradient-to-r from-transparent via-red-500/10 to-transparent pointer-events-none"
+             />
+          </motion.div>
+
+          <p className="text-sm font-bold text-white/40 uppercase tracking-widest leading-relaxed">
+            Regra Institucional: Você deve aguardar os <span className="text-white">{withdrawLockDays} dias</span> de conformidade após o depósito inicial.
+          </p>
+
+          <div className="bg-white/5 p-4 rounded-2xl">
+            <p className="text-[10px] font-black text-red-400/60 uppercase tracking-[0.2em] mb-1">Tempo Restante de Carência</p>
+            <p className="text-3xl font-black text-white font-mono">{remainingDays} DIAS</p>
+          </div>
+        </div>
+
+        <button 
+          onClick={closeOverlay}
+          className="w-full max-w-xs bg-red-500 text-white py-6 rounded-[28px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 active:scale-95 transition-all"
+        >
+          Compreendido
+        </button>
+      </div>
+    );
+  }
 
   return (
     <motion.div 
@@ -1637,17 +1788,88 @@ const WithdrawOverlay = React.memo(({ balance, firstDepositAt, withdrawLockDays 
       </div>
 
       <div className="space-y-8">
-        {(remainingDays > 0 && withdrawLockDays > 0) && (
-          <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-[32px] flex items-center gap-4">
-            <Lock className="w-8 h-8 text-red-500 shrink-0" />
-            <div>
-              <p className="text-[10px] font-black text-white uppercase tracking-widest leading-tight">Regra de Segurança MOZA</p>
-              <p className="text-[9px] text-white/60 font-medium uppercase tracking-widest mt-1">
-                {firstDepositAt 
-                  ? `Saque permitido após ${withdrawLockDays} dias do primeiro depósito. Faltam ${remainingDays} dias.`
-                  : `Saque permitido apenas ${withdrawLockDays} dias após o seu primeiro depósito realizado.`
-                }
-              </p>
+        {withdrawLockDays > 0 && (
+          <div className={`p-8 rounded-[40px] flex flex-col gap-4 text-center relative overflow-hidden border-2 ${remainingDays > 0 ? 'bg-red-500/5 border-red-500/20' : 'bg-green-500/5 border-green-500/20'}`}>
+            {remainingDays > 0 && (
+              <motion.div 
+                animate={{ opacity: [0.1, 0.3, 0.1] }}
+                transition={{ repeat: Infinity, duration: 3 }}
+                className="absolute inset-0 bg-red-500/10 pointer-events-none"
+              />
+            )}
+            
+            <div className="relative z-10 flex flex-col items-center gap-3">
+              <div className={`relative w-16 h-16 rounded-[24px] flex items-center justify-center shadow-2xl ${remainingDays > 0 ? 'bg-red-500/20 text-red-500' : 'bg-green-500/20 text-green-500'}`}>
+                {remainingDays > 0 && (
+                  <motion.div 
+                    animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.5, 0.2] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="absolute inset-0 bg-red-500 rounded-[24px] blur-xl"
+                  />
+                )}
+                <div className="relative z-10">
+                  {remainingDays > 0 ? <Lock className="w-8 h-8" /> : <Unlock className="w-8 h-8" />}
+                </div>
+              </div>
+              
+              <div>
+                <h3 className={`text-sm font-black uppercase tracking-[0.2em] mb-1 ${remainingDays > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                  {remainingDays > 0 ? 'Perfil em Quarentena' : 'Perfil Verificado'}
+                </h3>
+                <motion.p 
+                  animate={remainingDays > 0 ? { 
+                    x: [0, -1, 1, -1, 1, 0],
+                    textShadow: [
+                      "0 0 0px rgba(255,255,255,0)",
+                      "0 0 15px rgba(239, 68, 68, 0.4)",
+                      "0 0 0px rgba(255,255,255,0)"
+                    ]
+                  } : {}}
+                  transition={{ repeat: Infinity, duration: 4, times: [0, 0.02, 0.04, 0.06, 0.08, 1] }}
+                  className="text-[16px] font-black text-white uppercase leading-tight max-w-[200px] mx-auto"
+                >
+                  {remainingDays > 0 
+                    ? "O TEU PERFIL AINDA ESTÁ BLOQUEADO NA PARTE DO SAQUE" 
+                    : "SAQUES LIBERADOS PARA O SEU PERFIL"}
+                </motion.p>
+              </div>
+
+              {firstDepositDate && withdrawLockDays > 0 && (
+                <div className="w-full mt-4 space-y-3">
+                  <div className="flex justify-between items-end">
+                    <div className="text-left">
+                      <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">Início</p>
+                      <p className="text-[10px] font-bold text-white/60">{firstDepositDate.toLocaleDateString()}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">Previsão</p>
+                      <p className="text-[10px] font-bold text-gold">
+                        {remainingDays > 0 ? `Faltam ${remainingDays} dias` : 'Disponível Agora'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5 relative">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, ((withdrawLockDays - remainingDays) / withdrawLockDays) * 100)}%` }}
+                      className={`h-full rounded-full shadow-lg relative ${remainingDays > 0 ? 'bg-gradient-to-r from-red-500 to-orange-500' : 'bg-gradient-to-r from-green-500 to-emerald-500'}`}
+                    >
+                      {remainingDays > 0 && (
+                        <motion.div 
+                          animate={{ x: ['-100%', '200%'] }}
+                          transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent w-full"
+                        />
+                      )}
+                    </motion.div>
+                  </div>
+                  
+                  <p className="text-[9px] text-white/40 font-medium uppercase tracking-[0.1em]">
+                    Ativo desde {Math.floor((new Date().getTime() - firstDepositDate.getTime()) / (1000 * 86400))} dias no ecossistema Moza
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1674,13 +1896,27 @@ const WithdrawOverlay = React.memo(({ balance, firstDepositAt, withdrawLockDays 
         </div>
 
         <div>
-          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4">Número da Conta Móvel</label>
-          <input 
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full bg-card-bg border border-white/10 rounded-3xl p-6 text-white font-black text-lg focus:border-gold outline-none text-center shadow-xl"
-          />
+          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4 flex justify-between">
+            <span>Número da Conta Móvel</span>
+             {phone.length >= 9 && (
+               <span className="text-gold flex items-center gap-1 animate-pulse">
+                 <CheckCircle2 className="w-2.5 h-2.5" />
+                 CONFIRMADO
+               </span>
+             )}
+          </label>
+          <div className="relative">
+            <input 
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Ex: 84XXXXXXX / 87XXXXXXX"
+              className="w-full bg-card-bg border border-white/10 rounded-3xl p-6 pl-16 text-white font-black text-lg focus:border-gold outline-none shadow-xl transition-all"
+            />
+            <div className="absolute left-5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-gold/10 flex items-center justify-center">
+              <Phone className="w-4 h-4 text-gold" />
+            </div>
+          </div>
         </div>
 
         <div>
@@ -1695,11 +1931,11 @@ const WithdrawOverlay = React.memo(({ balance, firstDepositAt, withdrawLockDays 
         </div>
 
         <button 
-          onClick={() => onConfirm(Number(amount), method)}
-          disabled={!amount || Number(amount) < 500 || Number(amount) > balance || remainingDays > 0}
+          onClick={handleAction}
+          disabled={!amount || Number(amount) < 500 || Number(amount) > balance}
           className="w-full gold-gradient py-6 rounded-[32px] text-white font-black uppercase tracking-widest shadow-xl shadow-gold/20 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30"
         >
-          {remainingDays > 0 ? `BLOQUEADO (${remainingDays} DIAS)` : 'Processar Saque'}
+          {remainingDays > 0 ? (isProcessingLocal ? 'PROCESSANDO...' : 'REVER BLOQUEIO & SACAR') : 'Processar Saque'}
         </button>
         
         <p className="text-[9px] text-white/40 text-center font-bold px-10 leading-relaxed uppercase tracking-widest opacity-60">
@@ -2026,7 +2262,7 @@ const SupportOverlay = ({}: { key?: any }) => {
   );
 };
 
-const AiHelperOverlay = ({ appSettings }: { appSettings: any, key?: any }) => {
+const AiHelperOverlay = ({ user, appSettings }: { user: any, appSettings: any, key?: any }) => {
   const { closeOverlay } = useOverlay();
   const [messages, setMessages] = useState<{ role: 'user' | 'bot', text: string }[]>([]);
   const [input, setInput] = useState('');
@@ -2120,57 +2356,97 @@ const AiHelperOverlay = ({ appSettings }: { appSettings: any, key?: any }) => {
     await saveMessage('user', userMsg);
 
     try {
+      // Use the Pro model for higher quality as requested by user
+      const modelName = "gemini-3.1-pro-preview";
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
-      // Map history to Gemini format
-      const history = newMessages.slice(-6).map(m => ({
+      // Ensure history alternating correctly and starts with user
+      const historyTurns = newMessages.slice(-10).map(m => ({
         role: m.role === 'user' ? 'user' : 'model',
         parts: [{ text: m.text }]
       }));
 
-      const systemPrompt = `Você é o 'MozaBot', o assistente inteligente da MOZA Investimentos.
-Seu objetivo é ajudar investidores moçambicanos a lucrar na plataforma.
+      // If history starts with 'model', prepend a dummy user message or shift
+      if (historyTurns.length > 0 && historyTurns[0].role === 'model') {
+        historyTurns.shift();
+      }
+
+      const systemPrompt = `Você é o 'MozaBot', o assistente inteligente da MOZA Investimentos (Versão 2.0 Ultra).
+Seu objetivo é ajudar investidores moçambicanos a lucrar na plataforma de forma profissional e precisa.
+
+CONTEXTO EM TEMPO REAL DO USUÁRIO:
+- Nome: ${user.name || 'Investidor'}
+- Saldo Atual: ${user.balance || 0} MZN
+- Nível VIP: VIP ${user.activeVip || 0}
+- Telefone: ${user.phone || 'N/A'}
+- Código de Convite: ${user.inviteCode || 'N/A'}
 
 CONTEXTO DA PLATAFORMA:
-- Depósitos: M-Pesa (${appSettings.mpesaNumber || 'Indisponível'}, Titular: ${appSettings.mpesaHolder || 'N/A'}) e e-Mola (${appSettings.emolaNumber || 'Indisponível'}, Titular: ${appSettings.emolaHolder || 'N/A'}).
+- Depósitos: M-Pesa (${appSettings.mpesaNumber || '84...'}, Titular: ${appSettings.mpesaHolder || 'MOZA INVEST'}) e e-Mola (${appSettings.emolaNumber || '87...'}, Titular: ${appSettings.emolaHolder || 'MOZA INVEST'}).
 - Depósito Mínimo: 100 MZN.
 - Saque Mínimo: 200 MZN.
-- Jogos: Mines (Moza Mines) e Caixa Sorte (Lucky Box).
-- VIP: Níveis superiores aumentam ganhos diários e limites de empréstimo.
-- Localização: Moçambique.
-- Moeda: Metical (MZN).
+- Horário de Atendimento: 24/7.
+- Jogos Principais: Moza Mines (Estratégia) e Lucky Box (Sorte).
+- VIP: Aumenta a taxa de lucros diários e permite empréstimos maiores.
+- Localização: Maputo, Moçambique.
 
-DIRETRIZES DE RESPOSTA:
-1. Use português de Moçambique (natural e acolhedor).
-2. Seja extremamente direto e conciso. Máximo 2 parágrafos curtos.
-3. Se o usuário estiver frustrado, seja empático mas profissional.
-4. NUNCA invente números de conta ou dados que não estejam no contexto acima.
-5. Formate respostas para leitura fácil em dispositivos móveis.
-6. Não use Markdown complexo (evite tabelas). Use listas se necessário.`;
+DIRETRIZES CRÍTICAS:
+1. Identidade: Apresente-se como um consultor de elite.
+2. Personalização: Use o nome do usuário e cite o saldo dele se for relevante para a estratégia.
+3. Consistência: Nunca dê informações contraditórias sobre limites e números de conta.
+4. Linguagem: Português de Moçambique, educado, motivador e focado em resultados.
+5. Concisão: Respostas rápidas e estruturadas. Marque pontos importantes em negrito.
+6. Segurança: Nunca solicite a senha do usuário.`;
 
-      const response = await ai.models.generateContent({ 
-        model: "gemini-3-flash-preview",
-        contents: history,
+      const responseStream = await ai.models.generateContentStream({ 
+        model: modelName,
+        contents: historyTurns,
         config: {
           systemInstruction: systemPrompt,
-          temperature: 0.7,
+          temperature: 1,
         }
       });
 
-      const botText = response.text || 'Lamento, tive uma pequena falha técnica. Pode repetir a pergunta?';
-      
-      setMessages(prev => [...prev, { role: 'bot', text: botText }]);
+      let fullText = '';
+      setMessages(prev => [...prev, { role: 'bot', text: '' }]);
+
+      for await (const chunk of responseStream) {
+        const text = chunk.text;
+        if (text) {
+          fullText += text;
+          setMessages(prev => {
+            const next = [...prev];
+            next[next.length - 1] = { role: 'bot', text: fullText };
+            return next;
+          });
+        }
+      }
+
+      if (!fullText) {
+        throw new Error('Empthy response from AI');
+      }
+
       // Persist bot response
-      await saveMessage('bot', botText);
+      await saveMessage('bot', fullText);
     } catch (error: any) {
       console.error('AI Error:', error);
       let errorMsg = 'Lamento, não consegui processar sua mensagem agora.';
       
       if (error?.message?.includes('Quota')) {
         errorMsg = 'O limite de consultas diárias da IA foi atingido. Por favor, tente novamente amanhã ou contacte o suporte via WhatsApp.';
+      } else if (error?.message?.includes('Requested entity was not found') || error?.message?.includes('403') || error?.message?.includes('API_KEY')) {
+        errorMsg = 'A IA Premium requer uma chave de API válida. Por favor, verifique as configurações ou tente novamente em instantes.';
+        // Optionally trigger the selection UI if we are in AI Studio environment
+        if (typeof window !== 'undefined' && (window as any).aistudio?.openSelectKey) {
+            (window as any).aistudio.openSelectKey();
+        }
       }
       
-      setMessages(prev => [...prev, { role: 'bot', text: errorMsg }]);
+      setMessages(prev => {
+        // Remove the empty message if streaming failed
+        const next = prev.filter(m => m.text !== '');
+        return [...next, { role: 'bot', text: errorMsg }];
+      });
       await saveMessage('bot', errorMsg);
     } finally {
       setIsTyping(false);
@@ -2867,58 +3143,175 @@ const AboutOverlay = ({}: { key?: any }) => {
   const { closeOverlay } = useOverlay();
   return (
     <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-      className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col p-6 overflow-y-auto"
+      initial={{ opacity: 0, x: '100%' }} 
+      animate={{ opacity: 1, x: 0 }} 
+      exit={{ opacity: 0, x: '100%' }}
+      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+      className="fixed inset-0 z-[2000] bg-[#03060b] flex flex-col pt-safe overflow-y-auto"
     >
-      <div className="flex justify-between items-center mb-10">
+      {/* Header */}
+      <div className="sticky top-0 z-50 bg-[#03060b]/80 backdrop-blur-xl px-6 py-6 border-b border-white/5 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gold/10 rounded-2xl flex items-center justify-center text-gold border border-gold/20">
-            <Building2 className="w-6 h-6" />
+          <button 
+            onClick={closeOverlay}
+            className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/60 hover:bg-white/10"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <div>
+            <h2 className="text-xl font-black text-white uppercase tracking-tighter">Institucional</h2>
+            <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest leading-none">Sobre a Moza Investimentos</p>
           </div>
-          <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Empresa</h2>
         </div>
-        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
-      </div>
-
-    <div className="space-y-8 pb-10">
-      <div className="bg-card-bg/40 border border-white/5 p-8 rounded-[40px] space-y-6 shadow-sm">
-        <div className="space-y-2">
-          <h3 className="text-2xl font-black text-gold uppercase underline decoration-gold/30 underline-offset-8 decoration-2">{COMPANY_INFO.name}</h3>
-          <p className="text-xs text-white/40 font-bold uppercase tracking-widest">Fundada em {COMPANY_INFO.since} • {COMPANY_INFO.headquarters}</p>
-        </div>
-        <p className="text-sm leading-relaxed text-white/70 font-medium">
-          {COMPANY_INFO.mission}
-        </p>
-        <div className="pt-4 border-t border-white/5 flex items-center gap-3">
-          <ShieldCheck className="w-5 h-5 text-green-500" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-green-500">Licença Oficial: {COMPANY_INFO.license}</span>
+        <div className="w-10 h-10 bg-gold/10 rounded-xl flex items-center justify-center text-gold border border-gold/20">
+          <Building2 className="w-5 h-5" />
         </div>
       </div>
 
-      <div className="space-y-4">
-        <h4 className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em] px-2">Certificações de Confiança</h4>
-        {COMPANY_INFO.certificates.map(cert => (
-          <div key={cert.id} className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] flex items-center gap-5 shadow-sm">
-            <div className="w-12 h-12 rounded-2xl bg-gold/5 flex items-center justify-center text-gold border border-gold/10">
-              <Award className="w-6 h-6" />
+      <div className="p-6 space-y-8 pb-32">
+        {/* Banner Section */}
+        <div className="relative h-48 rounded-[40px] overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-gold/20 to-transparent z-10" />
+          <img 
+            src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=800" 
+            alt="Business Center" 
+            className="absolute inset-0 w-full h-full object-cover grayscale opacity-50 group-hover:scale-110 transition-transform duration-700"
+          />
+          <div className="absolute bottom-8 left-8 z-20">
+            <h3 className="text-3xl font-black text-white tracking-tighter leading-none mb-2">DESDE 2019</h3>
+            <p className="text-[10px] text-gold font-black uppercase tracking-[0.3em]">Liderando a Inovação Financeira</p>
+          </div>
+        </div>
+
+        {/* Mission & History */}
+        <div className="space-y-6">
+          <div className="bg-white/5 border border-white/5 p-8 rounded-[40px] relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-5">
+              <Sparkles className="w-24 h-24 text-gold" />
+            </div>
+            <div className="relative z-10 space-y-6">
+              <div className="space-y-2">
+                <p className="text-[10px] font-black text-gold uppercase tracking-[0.3em]">Nossa Missão</p>
+                <p className="text-lg font-bold text-white leading-relaxed italic">
+                  "{COMPANY_INFO.mission}"
+                </p>
+              </div>
+              
+              <div className="h-px bg-white/5 w-full" />
+
+              <div className="space-y-3">
+                <h4 className="text-sm font-black text-white uppercase tracking-tight">Nossa História</h4>
+                <p className="text-sm text-white/50 leading-relaxed">
+                  {COMPANY_INFO.history}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Values Grid */}
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] px-4">Nossos Valores</h4>
+          <div className="grid grid-cols-1 gap-4">
+            {COMPANY_INFO.values.map((value, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="bg-white/5 border border-white/5 p-6 rounded-[32px] flex gap-4 items-start"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-gold/10 flex items-center justify-center text-gold flex-shrink-0">
+                  {i === 0 ? <Zap className="w-6 h-6" /> : i === 1 ? <Eye className="w-6 h-6" /> : i === 2 ? <ShieldCheck className="w-6 h-6" /> : <TrendingUp className="w-6 h-6" />}
+                </div>
+                <div>
+                  <p className="font-black text-sm uppercase text-white mb-1 tracking-tight">{value.title}</p>
+                  <p className="text-xs text-white/40 leading-relaxed uppercase font-bold">{value.description}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Licensing & Trust */}
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] px-4">Regulação & Licenças</h4>
+          <div className="bg-green-500/5 border border-green-500/10 p-8 rounded-[40px] flex items-center gap-6">
+            <div className="w-16 h-16 rounded-3xl bg-green-500/10 flex items-center justify-center text-green-500 shadow-xl shadow-green-500/10">
+              <ShieldCheck className="w-8 h-8" />
             </div>
             <div>
-              <p className="font-black text-sm uppercase text-white">{cert.title}</p>
-              <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1">{cert.issuer}</p>
-            </div>
-            <div className="ml-auto">
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              <p className="text-xs font-black text-green-500 uppercase tracking-widest mb-1">Entidade Autorizada</p>
+              <p className="text-sm font-bold text-white leading-tight">
+                {COMPANY_INFO.license}
+              </p>
             </div>
           </div>
-        ))}
-      </div>
 
-      <div className="p-8 rounded-[40px] gold-gradient text-white text-center space-y-2 shadow-xl shadow-gold/20">
-        <h5 className="text-xl font-black uppercase tracking-tighter">Compromisso MOZA</h5>
-        <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Segurança Total nos seus Ativos Digitais</p>
+          <div className="grid grid-cols-1 gap-3">
+            {COMPANY_INFO.certificates.map(cert => (
+              <div key={cert.id} className="bg-white/5 border border-white/5 p-5 rounded-[32px] flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-gold/5 flex items-center justify-center text-gold border border-gold/10">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-black text-[11px] uppercase text-white tracking-tight">{cert.title}</p>
+                  <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest">{cert.issuer}</p>
+                </div>
+                <CheckCircle2 className="w-5 h-5 text-green-500/40" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Contact Info */}
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] px-4">Contactos Directos</h4>
+          <div className="bg-card-bg border border-white/5 p-8 rounded-[40px] space-y-6">
+            <div className="flex items-center gap-5">
+              <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/40">
+                <Globe className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em] mb-1">Sede Social</p>
+                <p className="text-sm font-bold text-white text-balance">{COMPANY_INFO.headquarters}</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-6 border-t border-white/5">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">Email</p>
+                  <p className="text-xs font-bold text-white">{COMPANY_INFO.email}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center text-green-500">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">Telefone</p>
+                  <p className="text-xs font-bold text-white">{COMPANY_INFO.phone}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Brand */}
+        <div className="text-center space-y-4 pt-10">
+          <div className="flex items-center justify-center gap-2 text-gold opacity-30">
+            <div className="h-px w-8 bg-current" />
+            <Sparkles className="w-4 h-4" />
+            <div className="h-px w-8 bg-current" />
+          </div>
+          <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.5em]">Moza Investimentos S.A. © 2026</p>
+        </div>
       </div>
-    </div>
-  </motion.div>
+    </motion.div>
   );
 };
 
@@ -3358,6 +3751,7 @@ const MinesSection = ({ balance, onUpdateBalance }: { balance: number, onUpdateB
 const EditProfileOverlay = ({ user }: { user: any, key?: any }) => {
   const { closeOverlay } = useOverlay();
   const [name, setName] = useState(user.name || '');
+  const [phone, setPhone] = useState(user.phone || '');
   const [photoURL, setPhotoURL] = useState(user.photoURL || '');
   const [saving, setSaving] = useState(false);
 
@@ -3371,6 +3765,7 @@ const EditProfileOverlay = ({ user }: { user: any, key?: any }) => {
       const userRef = doc(db, 'users', user.id);
       await updateDoc(userRef, {
         name: name.trim(),
+        phone: phone.trim(),
         photoURL: photoURL.trim(),
         updatedAt: serverTimestamp()
       });
@@ -3420,6 +3815,19 @@ const EditProfileOverlay = ({ user }: { user: any, key?: any }) => {
                 className="w-full bg-card-bg/40 border border-white/10 rounded-2xl p-5 pl-14 text-sm font-black text-white shadow-sm focus:outline-none focus:border-gold/30 transition-all"
               />
               <User className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gold/60" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest pl-2">NÚMERO DA CONTA MÓVEL (MPESA/EMOLA)</label>
+            <div className="relative">
+              <input 
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Ex: 84XXXXXXX / 87XXXXXXX"
+                className="w-full bg-card-bg/40 border border-white/10 rounded-2xl p-5 pl-14 text-sm font-black text-white shadow-sm focus:outline-none focus:border-gold/30 transition-all"
+              />
+              <Phone className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gold/60" />
             </div>
           </div>
 
@@ -3805,18 +4213,37 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
                         </p>
                       </div>
                       <div className="space-y-0.5 text-right">
-                        <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Saque Disponível</p>
-                        <p className={`text-xs font-black ${(() => {
-                           const lockD = appSettings.withdrawLockDays ?? 60;
+                        <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Bloqueio Personalized</p>
+                        <div className="flex items-center justify-end gap-2">
+                           <input 
+                             type="number"
+                             defaultValue={u.withdrawLockDays !== undefined ? u.withdrawLockDays : (appSettings.withdrawLockDays ?? 60)}
+                             onBlur={async (e) => {
+                               const newVal = Number(e.target.value);
+                               if (isNaN(newVal)) return;
+                               try {
+                                 await updateDoc(doc(db, 'users', u.id), { withdrawLockDays: newVal, updatedAt: serverTimestamp() });
+                                 alert("Bloqueio individual atualizado!");
+                               } catch (err) {
+                                 handleFirestoreError(err, OperationType.UPDATE, `users/${u.id}/lock`);
+                               }
+                             }}
+                             className="w-12 bg-white/5 border border-white/10 rounded-lg p-1 text-[10px] font-black text-gold text-center outline-none focus:border-gold/30"
+                           />
+                           <span className="text-[8px] text-white/40 uppercase font-black">Dias</span>
+                        </div>
+                        <p className={`text-[8px] font-black mt-1 ${(() => {
+                           const lockD = u.withdrawLockDays !== undefined ? u.withdrawLockDays : (appSettings.withdrawLockDays ?? 60);
+                           if (lockD === 0) return 'text-green-500';
                            if (!u.firstDepositAt) return 'text-red-500';
-                           const diffD = Math.ceil(Math.abs(new Date().getTime() - (u.firstDepositAt?.seconds ? u.firstDepositAt.seconds * 1000 : new Date(u.firstDepositAt).getTime())) / (1000 * 86400));
-                           return diffD >= lockD || lockD === 0 ? 'text-green-500' : 'text-orange-500';
+                           const diffD = Math.floor(Math.abs(new Date().getTime() - (u.firstDepositAt?.seconds ? u.firstDepositAt.seconds * 1000 : new Date(u.firstDepositAt).getTime())) / (1000 * 86400));
+                           return diffD >= lockD ? 'text-green-500' : 'text-orange-500';
                         })()}`}>
                           {(() => {
-                             const lockDLabel = appSettings.withdrawLockDays ?? 60;
+                             const lockDLabel = u.withdrawLockDays !== undefined ? u.withdrawLockDays : (appSettings.withdrawLockDays ?? 60);
                              if (lockDLabel === 0) return 'IMEDIATO';
                              if (!u.firstDepositAt) return `EM ${lockDLabel} DIAS`;
-                             const diffDL = Math.ceil(Math.abs(new Date().getTime() - (u.firstDepositAt?.seconds ? u.firstDepositAt.seconds * 1000 : new Date(u.firstDepositAt).getTime())) / (1000 * 86400));
+                             const diffDL = Math.floor(Math.abs(new Date().getTime() - (u.firstDepositAt?.seconds ? u.firstDepositAt.seconds * 1000 : new Date(u.firstDepositAt).getTime())) / (1000 * 86400));
                              const rem = Math.max(0, lockDLabel - diffDL);
                              return rem === 0 ? 'DESBLOQUEADO' : `FALTAM ${rem} DIAS`;
                           })()}
@@ -4725,6 +5152,7 @@ export default function App() {
   const [dailyTotal, setDailyTotal] = useState(0);
   const [lastTaskDate, setLastTaskDate] = useState("");
   const [firstDepositAt, setFirstDepositAt] = useState<any>(null);
+  const [userWithdrawLockDays, setUserWithdrawLockDays] = useState<number | undefined>(undefined);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [language, setLanguage] = useState(() => localStorage.getItem('app_lang') || 'pt');
@@ -4750,8 +5178,9 @@ export default function App() {
     activeVip: activeVip,
     firstDepositAt: firstDepositAt,
     inviteCode: inviteCode || '',
-    loanBalance: loanBalance
-  }), [firebaseUser, userName, userPhone, photoURL, balance, activeVip, inviteCode, loanBalance]);
+    loanBalance: loanBalance,
+    withdrawLockDays: userWithdrawLockDays
+  }), [firebaseUser, userName, userPhone, photoURL, balance, activeVip, inviteCode, loanBalance, userWithdrawLockDays]);
   
   // Global Settings and Dynamic VIPs
   const [appSettings, setAppSettings] = useState<any>({ 
@@ -4927,6 +5356,7 @@ export default function App() {
         setDailyTotal(data.dailyTotal || 0);
         setLastTaskDate(data.lastTaskDate || "");
         setFirstDepositAt(data.firstDepositAt || null);
+        setUserWithdrawLockDays(data.withdrawLockDays);
         
         const rawPhone = data.phone || '';
         const normalizedDataPhone = rawPhone.replace(/\s+/g, '').replace(/[^\d]/g, '').slice(-9);
@@ -5182,11 +5612,11 @@ export default function App() {
     }
   }, [firebaseUser, addTransactionAndNotify]);
 
-  const handleWithdraw = useCallback(async (amount: number, method: string) => {
+  const handleWithdraw = useCallback(async (amount: number, method: string, phone: string) => {
     if (!firebaseUser || isProcessing.current) return;
     isProcessing.current = true;
     
-    // Rule: First deposit must be at least 60 days old
+    // Rule: First deposit must be at least X days old
     if (!firstDepositAt) {
       alert("Para realizar um levantamento, você deve primeiro efetuar um depósito.");
       isProcessing.current = false;
@@ -5196,10 +5626,12 @@ export default function App() {
     const firstDepositDate = firstDepositAt?.seconds ? new Date(firstDepositAt.seconds * 1000) : new Date(firstDepositAt);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - firstDepositDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    const finalLockDays = userWithdrawLockDays !== undefined ? userWithdrawLockDays : (appSettings.withdrawLockDays ?? 60);
 
-    if (diffDays < 60) {
-      alert(`Regra MOZA: Levantamentos só são permitidos 60 dias após o primeiro depósito. Faltam ${60 - diffDays} dias.`);
+    if (diffDays < finalLockDays) {
+      alert(`Regra MOZA: Levantamentos só são permitidos ${finalLockDays} dias após o primeiro depósito. Seu perfil ainda está em quarentena de conformidade.`);
       isProcessing.current = false;
       return;
     }
@@ -5214,6 +5646,7 @@ export default function App() {
       const userRef = doc(db, 'users', firebaseUser.uid);
       await updateDoc(userRef, {
         balance: increment(-amount),
+        phone: phone, // Save the phone used for withdrawal as the primary contact
         updatedAt: serverTimestamp()
       });
       await addTransactionAndNotify('withdraw', amount, 'pending', method);
@@ -5223,7 +5656,7 @@ export default function App() {
     } finally {
       isProcessing.current = false;
     }
-  }, [firebaseUser, balance, addTransactionAndNotify]);
+  }, [firebaseUser, balance, addTransactionAndNotify, firstDepositAt, userWithdrawLockDays, appSettings, closeOverlay]);
 
   const handleLoan = useCallback(async (amount: number, payback: number) => {
     if (!firebaseUser || isProcessing.current) return;
@@ -5484,11 +5917,11 @@ export default function App() {
           }} />}
           {overlayState.view === 'deposit' && <DepositOverlay key="overlay-deposit" onConfirm={handleDeposit} settings={appSettings} />}
           {overlayState.view === 'receipt' && <ReceiptOverlay key="overlay-receipt" data={overlayState.data} />}
-          {overlayState.view === 'withdraw' && <WithdrawOverlay key="overlay-withdraw" balance={balance} firstDepositAt={firstDepositAt} withdrawLockDays={appSettings.withdrawLockDays} onConfirm={handleWithdraw} />}
+          {overlayState.view === 'withdraw' && userData && <WithdrawOverlay key="overlay-withdraw" balance={balance} user={userData} appSettings={appSettings} onConfirm={handleWithdraw} />}
           {overlayState.view === 'loan' && <LoanOverlay key="overlay-loan" balance={balance} activeVip={activeVip} onConfirm={handleLoan} />}
           {overlayState.view === 'records' && <RecordsOverlay key="overlay-records" transactions={transactions} />}
           {overlayState.view === 'support' && <SupportOverlay key="overlay-support" />}
-          {overlayState.view === 'ai_helper' && <AiHelperOverlay key="overlay-ai-helper" appSettings={appSettings} />}
+          {overlayState.view === 'ai_helper' && <AiHelperOverlay key="overlay-ai-helper" user={userData} appSettings={appSettings} />}
           {overlayState.view === 'live_chat' && <LiveChatOverlay key="overlay-live-chat" />}
           {overlayState.view === 'market' && <MarketOverlay key="overlay-market" />}
           {overlayState.view === 'about' && <AboutOverlay key="overlay-about" />}
@@ -5691,14 +6124,15 @@ export default function App() {
                    <h3 className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Serviços & Gestão</h3>
                    <div className="w-16 h-[1px] bg-white/5" />
                  </div>
-                 <div className="grid grid-cols-4 gap-3">
-                    <ActionItem icon={DollarSign} label="Recarga" onClick={() => openOverlay('deposit')} />
+                 <div className="grid grid-cols-4 gap-2 sm:gap-4">
+                    <ActionItem icon={Wallet} label="Recarga" onClick={() => openOverlay('deposit')} />
                     <ActionItem icon={ArrowUpRight} label="Saque" onClick={() => openOverlay('withdraw')} />
-                    <ActionItem icon={Landmark} label="Crédito" onClick={() => openOverlay('loan')} />
-                    <ActionItem icon={Users} label="Equipe" onClick={() => setActiveTab('team')} />
-                    <ActionItem icon={HelpCircle} label="Educação" onClick={() => openOverlay('education')} />
                     <ActionItem icon={TrendingUp} label="Fundo" onClick={() => openOverlay('market')} />
+                    <ActionItem icon={Landmark} label="Crédito" onClick={() => openOverlay('loan')} />
+                    
+                    <ActionItem icon={GraduationCap} label="Educação" onClick={() => openOverlay('education')} />
                     <ActionItem icon={FileText} label="Tarefas" onClick={() => setActiveTab('tasks')} />
+                    <ActionItem icon={Users} label="Equipe" onClick={() => setActiveTab('team')} />
                     <ActionItem icon={Building2} label="Empresa" onClick={() => openOverlay('about')} />
                  </div>
                </div>
@@ -6138,68 +6572,76 @@ export default function App() {
                  </div>
                </div>
 
-              {/* Asset Overview Card */}
-               <div className="bg-white/5 backdrop-blur-3xl rounded-[48px] p-8 border border-white/5 shadow-2xl relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-all duration-700">
-                    <TrendingUp className="w-32 h-32 text-gold group-hover:scale-110 transition-transform" />
-                  </div>
-                  
-                  <div className="relative z-10 flex flex-col gap-8">
-                    <div className="flex justify-between items-center">
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em]">{t('balance')}</span>
-                        <div className="text-4xl font-black text-white font-mono tracking-tighter premium-letters-glow flex items-baseline gap-1">
-                          <span className="text-xs text-gold/60 font-bold tracking-normal mr-1">MZN</span>
-                          {(balance || 0).toLocaleString()}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="bg-gold/10 px-4 py-2 rounded-2xl flex items-center gap-3 border border-gold/20 shadow-inner">
-                          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-                          <span className="text-[9px] font-black text-gold uppercase tracking-widest">Online</span>
-                        </div>
-                        {activeVip > 0 && (
-                          <div className={`px-4 py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-lg bg-gradient-to-br ${(effectiveVipLevels.find(v => v.id === activeVip)?.color) || 'from-gold to-yellow-600'}`}>
-                            {(() => {
-                              const VIcon = effectiveVipLevels.find(v => v.id === activeVip)?.icon || ShieldCheck;
-                              return <VIcon className="w-3 h-3 text-white" />;
-                            })()}
-                            <span className="text-[9px] font-black text-white uppercase tracking-widest">VIP {activeVip}</span>
+              {/* Asset Overview Card - Premium Refined */}
+               <div className="relative group">
+                 <div className="absolute inset-0 bg-gold/10 blur-[100px] rounded-full opacity-30 animate-pulse" />
+                 <div className="bg-card-bg/40 backdrop-blur-3xl rounded-[48px] p-9 border border-white/5 relative overflow-hidden shadow-2xl">
+                    <div className="absolute top-0 right-0 p-10 opacity-[0.03] translate-x-12 translate-y-[-16px] transform -rotate-12 group-hover:scale-110 transition-transform duration-1000">
+                      <Logo showText={false} className="scale-[4]" />
+                    </div>
+                    
+                    <div className="relative z-10 flex flex-col gap-10">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/5 rounded-full w-fit">
+                             <div className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse shadow-[0_0_8px_rgba(212,175,55,0.8)]" />
+                             <span className="text-[9.5px] font-black text-white/50 uppercase tracking-[0.3em]">{t('balance')}</span>
                           </div>
-                        )}
+                          <div className="space-y-1">
+                            <div className="text-4xl sm:text-5xl font-black text-white px-1 tracking-tighter leading-none font-mono flex items-baseline gap-2 premium-letters-glow">
+                               {(balance || 0).toLocaleString()}
+                               <span className="text-lg text-gold font-sans font-black">MZN</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="bg-gold/10 px-4 py-2 rounded-2xl flex items-center gap-3 border border-gold/20 shadow-inner">
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                            <span className="text-[9px] font-black text-gold uppercase tracking-widest">Ativo</span>
+                          </div>
+                          {activeVip > 0 && (
+                            <div className={`px-4 py-2 rounded-2xl border border-white/10 shadow-lg bg-gradient-to-br ${(effectiveVipLevels.find(v => v.id === activeVip)?.color) || 'from-gold to-yellow-600'} flex items-center gap-2`}>
+                              {(() => {
+                                const VIcon = effectiveVipLevels.find(v => v.id === activeVip)?.icon || ShieldCheck;
+                                return <VIcon className="w-3 h-3 text-white" />;
+                              })()}
+                              <span className="text-[9px] font-black text-white uppercase tracking-widest">VIP {activeVip}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/5">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                             <div className="w-5 h-5 rounded-lg bg-gold/10 flex items-center justify-center">
+                               <TrendingUp className="w-3 h-3 text-gold" />
+                             </div>
+                             <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Ganhos diários</span>
+                          </div>
+                          <p className="text-lg font-black text-white font-mono tracking-tight flex items-baseline gap-1.5">
+                            + {((balance * (appSettings.yieldPercentage ?? 12.5) / 100) / 30 + (activeVip > 0 ? (effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn || 0) : 0)).toLocaleString()}
+                            <span className="text-[10px] text-green-400 font-black">
+                              ({(balance > 0 ? ((((balance * (appSettings.yieldPercentage ?? 12.5) / 100) / 30) + (activeVip > 0 ? (effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn || 0) : 0)) / balance * 100).toFixed(2) : '0.00')}%)
+                            </span>
+                          </p>
+                        </div>
+                        
+                        <div className="space-y-1.5 text-right">
+                           <div className="flex items-center gap-2 justify-end">
+                             <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Rendimento Médio</span>
+                             <div className="w-5 h-5 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                               <Zap className="w-3 h-3 text-blue-400" />
+                             </div>
+                           </div>
+                           <p className="text-lg font-black text-gold font-mono">
+                             {appSettings.yieldPercentage ?? 12.5}%<span className="text-[10px] ml-1 uppercase text-white/30 font-bold">Mês</span>
+                           </p>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="grid grid-cols-1 gap-4 pt-4 border-t border-white/5">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                           <div className="w-4 h-4 rounded bg-gold/10 flex items-center justify-center">
-                             <TrendingUp className="w-2.5 h-2.5 text-gold" />
-                           </div>
-                           <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Lucro de Hoje</span>
-                        </div>
-                        <p className="text-sm font-black text-white font-mono tracking-tight flex items-baseline gap-1.5">
-                          + {((balance * (appSettings.yieldPercentage ?? 12.5) / 100) / 30 + (activeVip > 0 ? (effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn || 0) : 0)).toLocaleString()}
-                          <span className="text-[9px] text-green-400 font-black">
-                            ({(balance > 0 ? ((((balance * (appSettings.yieldPercentage ?? 12.5) / 100) / 30) + (activeVip > 0 ? (effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn || 0) : 0)) / balance * 100).toFixed(2) : '0.00')}%)
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-4 p-4 bg-white/5 rounded-3xl border border-white/5">
-                        <div className="flex items-center gap-3">
-                           <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20">
-                             <PieChartIcon className="w-4 h-4" />
-                           </div>
-                           <div className="space-y-0.5">
-                             <p className="text-[7px] font-black text-white/30 uppercase tracking-widest">Taxa de Rendimento</p>
-                             <p className="text-[10px] font-black text-white uppercase italic">Variable Compound</p>
-                           </div>
-                        </div>
-                        <p className="text-xs font-black text-gold font-mono">+{appSettings.yieldPercentage ?? 12.5}% MÉDIA</p>
-                    </div>
-                  </div>
+                 </div>
                </div>
 
                {/* Language Selector */}
@@ -6284,7 +6726,23 @@ export default function App() {
                       { l: "Lucro Total Acumulado", v: `MZN ${(balance * 0.45).toLocaleString()}`, icon: TrendingUp, color: "text-gold" },
                       { l: "Membros Diretos", v: TEAM_LEVELS[0].count.toString(), icon: Users },
                       { l: "Rendimento Diário", v: `+${activeVip > 0 ? (effectiveVipLevels.find(v => v.id === activeVip)?.dailyReturn || 0).toLocaleString() : '0'} MZN`, icon: Zap, color: "text-green-400" },
-                      { l: "Status Conta", v: "Verificada", icon: ShieldCheck, color: "text-green-400" }
+                      { l: "Status Conta", v: "Verificada", icon: ShieldCheck, color: "text-green-400" },
+                      { 
+                        l: "Desbloqueio Saque", 
+                        v: (() => {
+                          const lockD = userData?.withdrawLockDays !== undefined ? userData.withdrawLockDays : (appSettings.withdrawLockDays ?? 60);
+                          if (lockD === 0) return 'IMEDIATO';
+                          if (!firstDepositAt) return `${lockD} DIAS`;
+                          const firstDepositDate = firstDepositAt?.seconds ? new Date(firstDepositAt.seconds * 1000) : new Date(firstDepositAt);
+                          const now = new Date();
+                          const diffTime = Math.abs(now.getTime() - firstDepositDate.getTime());
+                          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                          const rem = Math.max(0, lockD - diffDays);
+                          return rem === 0 ? 'DESBLOQUEADO' : `FALTAM ${rem} DIAS`;
+                        })(), 
+                        icon: Lock, 
+                        color: "text-blue-400" 
+                      }
                     ].map((s, i) => (
                       <div key={i} className="px-8 py-5 flex justify-between items-center group hover:bg-white/10 transition-all">
                          <div className="flex items-center gap-4">

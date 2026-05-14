@@ -41,9 +41,18 @@ export const QUICK_ACTIONS = [
 export const COMPANY_INFO = {
   name: 'MOZA Investimentos S.A.',
   since: '2019',
-  headquarters: 'Maputo, Moçambique',
-  license: 'MOZ-INV-2024-08X',
-  mission: 'Empoderar cidadãos moçambicanos através de investimentos acessíveis e rentáveis no mercado digital.',
+  headquarters: 'Avenida 25 de Setembro, Prédio Moza, 4º Andar, Maputo, Moçambique',
+  email: 'contacto@mozainvest.co.mz',
+  phone: '+258 84 877 8905',
+  license: 'MOZ-INV-2024-08X (Autorizada pelo Banco de Moçambique)',
+  history: 'A Moza Investimentos S.A. surgiu em 2019 como a primeira plataforma moçambicana 100% dedicada à democratização do acesso aos mercados de capitais digitais. Através de uma tecnologia proprietária de arbitragem e micro-investimento, permitimos que milhares de moçambicanos participem no crescimento da economia digital global a partir de apenas 500 MZN.',
+  mission: 'Empoderar cidadãos moçambicanos através de investimentos acessíveis e rentáveis no mercado digital, promovendo a inclusão financeira e a literacia económica em todo o país.',
+  values: [
+    { title: 'Inovação', description: 'Utilizamos tecnologia de ponta para simplificar o complexo mundo das finanças.' },
+    { title: 'Transparência', description: 'Todos os ganhos e operações são auditáveis em tempo real pelos nossos investidores.' },
+    { title: 'Integridade', description: 'Operamos sob os mais rigorosos padrões éticos e regulatórios de Moçambique.' },
+    { title: 'Responsabilidade', description: 'Comprometemo-nos com o crescimento sustentável do capital dos nossos membros.' }
+  ],
   certificates: [
     { id: 1, title: 'Certificado de Operação Digital', issuer: 'Autoridade Financeira de Maputo' },
     { id: 2, title: 'Selo de Segurança SSL 256-bit', issuer: 'GlobalSign Cloud' },
