@@ -94,6 +94,7 @@ const useOverlay = () => {
   return context;
 };
 import { GoogleGenAI } from "@google/genai";
+import ReactMarkdown from 'react-markdown';
 import { 
   LineChart, 
   Line, 
@@ -2513,25 +2514,35 @@ const AiHelperOverlay = ({ user, appSettings }: { user: any, appSettings: any, k
         historyTurns.shift();
       }
 
-      const systemPrompt = `Você é o 'MozaBot 3.0', o assistente de ELITE da MOZA Investimentos.
-Seu objetivo é ajudar investidores moçambicanos a alcançarem o sucesso financeiro na plataforma.
+      const systemPrompt = `Você é o 'MozaBot 4.0', a Inteligência Artificial de ELITE da MOZA Investimentos, com capacidades similares ao ChatGPT mas focada em finanças.
+Seu objetivo é ser o consultor financeiro mais sofisticado, prestativo e motivador para investidores em Moçambique.
 
-CONTEXTO DO INVESTIDOR:
+PERSONA:
+- Tom de voz: Sofisticado, empoderador, autoritário em finanças e extremamente gentil.
+- Estilo: Use Markdown para estruturar suas respostas (negrito para ênfase, listas para passos, etc).
+- Idioma: Português de Moçambique elegante (use termos locais como "M-Pesa", "e-Mola", "MZN", "Maningue Nice").
+
+CONHECIMENTO DO INVESTIDOR:
 - Nome: ${user.name || 'Investidor'}
-- Saldo: ${user.balance || 0} MZN
-- VIP: Nível ${user.activeVip || 0}
+- Saldo Atual: ${user.balance || 0} MZN
+- Nível VIP: ${user.activeVip || 0}
 - Telefone: ${user.phone || 'N/A'}
 
-REGRAS DE OURO DA MOZA:
-- Depósitos: M-Pesa (${appSettings.mpesaNumber || '84...'}) e e-Mola (${appSettings.emolaNumber || '87...'}).
-- Mínimos: Depósito 100 MZN | Saque 200 MZN.
-- Jogos: Moza Mines (Estratégia) e Lucky Box (Sorte).
+REGRAS DO ECOSSISTEMA MOZA:
+- Depósitos: Mínimo 100 MZN. Canais: M-Pesa (${appSettings.mpesaNumber || '84...'}) e e-Mola (${appSettings.emolaNumber || '87...'}).
+- Saques: Mínimo 200 MZN. Processamento: 6 a 48 horas.
+- VIP: Maiores níveis VIP garantem maiores retornos diários e limites de saque.
+- Jogos de Alta Fidelidade:
+  - Moza Mines: Jogo de estratégia onde o usuário deve evitar minas para multiplicar o capital.
+  - Lucky Box: Prêmios instantâneos aleatórios.
 
-COMPORTAMENTO:
-1. Seja o consultor MAIS INTELIGENTE da plataforma. Use termos como "Rentabilidade", "Gestão de Risco", "Portfólio VIP".
-2. Nunca apresente erros técnicos ao usuário. Se não souber algo, direcione ao suporte WhatsApp.
-3. Use o português de Moçambique de forma elegante e motivadora.
-4. Cite o saldo do usuário para dar dicas de investimento personalizadas (Ex: "Com o seu saldo de ${user.balance} MZN, você já pode subir para o próximo nível VIP").`;
+SUAS DIRETRIZES:
+1. ANÁLISE DE SALDO: Sempre que apropriado, mencione que com o saldo de ${user.balance} MZN, o usuário está [BEM POSICIONADO/PODE CRESCER].
+2. ESTRATÉGIA DE CRESCIMENTO: Sugira reinvestir lucros para subir de nível VIP.
+3. SEGURANÇA: Reforce que a MOZA usa auditoria em tempo real e tecnologia de ponta.
+4. INDISPONIBILIDADE: Se o usuário pedir algo que você não pode fazer (como processar um saque manualmente), diga que você é uma IA e que ele deve usar os botões da interface ou contactar o suporte humano se precisar de ajuda técnica profunda.
+
+Responda sempre de forma formatada e organizada.`;
 
       const responseStream = await ai.models.generateContentStream({ 
         model: modelName,
@@ -2595,15 +2606,41 @@ COMPORTAMENTO:
     >
       <div className="p-6 border-b border-white/5 flex justify-between items-center bg-card-bg/80 backdrop-blur-xl">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 gold-gradient rounded-xl flex items-center justify-center text-white">
-            <Bot className="w-6 h-6" />
+          <div className="w-12 h-12 gold-gradient rounded-2xl flex items-center justify-center text-white shadow-lg shadow-gold/20">
+            <Bot className="w-7 h-7" />
           </div>
           <div>
-            <h3 className="font-black text-white uppercase text-sm tracking-widest">Assistente IA</h3>
-            <p className="text-[8px] text-green-500 font-bold uppercase tracking-widest">Online Agora</p>
+            <div className="flex items-center gap-2">
+              <h3 className="font-black text-white uppercase text-sm tracking-widest">MozaBot 4.0</h3>
+              <div className="px-1.5 py-0.5 rounded bg-gold/10 border border-gold/20">
+                <span className="text-[7px] font-black text-gold uppercase tracking-tighter">AI PREMIUM</span>
+              </div>
+            </div>
+            <p className="text-[8px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
+              <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
+              Sempre Online
+            </p>
           </div>
         </div>
-        <button onClick={closeOverlay} className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={async () => {
+              if (window.confirm('Deseja limpar todo o histórico de conversas?')) {
+                const q = query(collection(db, 'ai_messages'), where('userId', '==', auth.currentUser?.uid));
+                const snapshot = await getDocs(q);
+                snapshot.forEach(async (doc) => {
+                  await deleteDoc(doc.ref);
+                });
+                setMessages([{ role: 'bot', text: 'Histórico limpo. Como posso ajudar agora?' }]);
+              }
+            }}
+            className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:bg-white/10 transition-all"
+            title="Limpar Histórico"
+          >
+            <RefreshCcw className="w-4 h-4" />
+          </button>
+          <button onClick={closeOverlay} className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/40 hover:bg-white/10 transition-all">✕</button>
+        </div>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -2642,10 +2679,29 @@ COMPORTAMENTO:
             )}
             {messages.map((m, i) => (
               <div key={`msg-${i}-${m.role}`} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] p-5 rounded-[24px] text-sm font-medium leading-relaxed ${
-                  m.role === 'user' ? 'gold-gradient text-white rounded-tr-none' : 'bg-card-bg/60 border border-white/5 text-white/90 rounded-tl-none shadow-sm'
+                <div className={`max-w-[85%] p-5 rounded-[24px] text-sm font-medium leading-relaxed ${
+                  m.role === 'user' 
+                    ? 'gold-gradient text-white rounded-tr-none shadow-lg' 
+                    : 'bg-card-bg/60 border border-white/5 text-white/90 rounded-tl-none shadow-sm'
                 }`}>
-                  {m.text}
+                  {m.role === 'bot' ? (
+                    <div className="prose prose-invert prose-sm max-w-none">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal pl-4 mb-2">{children}</ol>,
+                          li: ({ children }) => <li className="mb-1">{children}</li>,
+                          code: ({ children }) => <code className="bg-white/10 px-1 rounded font-mono text-[11px]">{children}</code>,
+                          strong: ({ children }) => <strong className="text-gold font-black">{children}</strong>,
+                        }}
+                      >
+                        {m.text}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    m.text
+                  )}
                 </div>
               </div>
             ))}
@@ -2653,33 +2709,36 @@ COMPORTAMENTO:
         )}
         {isTyping && (
           <div className="flex justify-start">
-            <div className="bg-card-bg/60 border border-white/5 p-4 rounded-[24px] rounded-tl-none flex gap-1">
-              <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-gold rounded-full" />
-              <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-gold rounded-full" />
-              <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-gold rounded-full" />
+            <div className="bg-card-bg/60 border border-white/5 p-4 rounded-[24px] rounded-tl-none flex gap-1.5 items-center">
+              <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-gold rounded-full" />
+              <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-gold rounded-full" />
+              <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-gold rounded-full" />
             </div>
           </div>
         )}
       </div>
 
       <div className="p-6 bg-card-bg border-t border-white/5">
-        <div className="relative">
+        <div className="relative mb-3">
           <input 
             type="text" 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Como posso ajudar?"
-            className="w-full bg-card-bg/40 border border-white/10 rounded-[28px] py-6 pl-8 pr-20 text-white font-medium outline-none focus:border-gold/50 transition-all"
+            placeholder="Pergunte sobre investimentos ou dicas..."
+            className="w-full bg-dark-bg/50 border border-white/10 rounded-[28px] py-6 pl-8 pr-20 text-white font-medium outline-none focus:border-gold/50 transition-all shadow-inner"
           />
           <button 
             onClick={handleSend}
             disabled={!input.trim() || isTyping || !auth.currentUser}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-14 h-14 gold-gradient rounded-full flex items-center justify-center text-white shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 w-14 h-14 gold-gradient rounded-full flex items-center justify-center text-white shadow-xl hover:brightness-110 active:scale-90 transition-all disabled:opacity-30 disabled:grayscale"
           >
             <Send className="w-6 h-6" />
           </button>
         </div>
+        <p className="text-[8px] text-white/20 text-center font-bold uppercase tracking-[0.2em]">
+          O MozaBot pode cometer erros. Verifique informações importantes.
+        </p>
       </div>
     </motion.div>
   );
