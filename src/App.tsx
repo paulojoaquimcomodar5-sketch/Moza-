@@ -72,7 +72,8 @@ import {
   Gamepad2,
   ImageIcon,
   Smartphone,
-  Mail
+  Mail,
+  CreditCard
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -1066,8 +1067,11 @@ const ActionItem = React.memo(({ icon: Icon, label, onClick }: { icon: LucideIco
 ActionItem.displayName = 'ActionItem';
 
 // --- Info Stat Card ---
-const InfoCard = React.memo(({ icon: Icon, title, value, colorClass = "text-green-500", subtitle }: { icon: LucideIcon, title: string, value: string, colorClass?: string, subtitle?: string }) => (
-  <div className="bg-card-bg/40 backdrop-blur-xl border border-white/5 p-5 sm:p-7 rounded-[32px] flex-1 flex flex-col gap-2 sm:gap-3 shadow-2xl relative overflow-hidden group">
+const InfoCard = React.memo(({ icon: Icon, title, value, colorClass = "text-green-500", subtitle, onClick }: { icon: LucideIcon, title: string, value: string, colorClass?: string, subtitle?: string, onClick?: () => void }) => (
+  <div 
+    onClick={onClick}
+    className="bg-card-bg/40 backdrop-blur-xl border border-white/5 p-5 sm:p-7 rounded-[32px] flex-1 flex flex-col gap-2 sm:gap-3 shadow-2xl relative overflow-hidden group cursor-pointer active:scale-95 transition-all"
+  >
     <div className="absolute top-0 right-0 p-4 opacity-[0.05] group-hover:opacity-[0.1] transition-opacity">
       <Icon className="w-12 h-12" />
     </div>
@@ -1254,7 +1258,7 @@ const VipCard = React.memo(({ level, status, onActivate }: { level: any, status:
 
 // --- Financial Overlays ---
 const DepositOverlay = React.memo(({ onConfirm, settings }: { onConfirm: (amt: number, method: string, proofUrl?: string, transactionId?: string) => void, settings: any, key?: any }) => {
-  const { data: initialAmount, closeOverlay } = useOverlay();
+  const { data: initialAmount, closeOverlay, openOverlay } = useOverlay();
   const [step, setStep] = useState(1);
   const [amount, setAmount] = useState(initialAmount ? initialAmount.toString() : '');
   const [method, setMethod] = useState('mpesa');
@@ -1734,7 +1738,7 @@ const YieldOverlay = React.memo(({ balance, activeVip, appSettings, vipLevels }:
 
 
 const WithdrawOverlay = React.memo(({ balance, user, appSettings, onConfirm }: { balance: number, user: any, appSettings: any, onConfirm: (amt: number, method: string, phone: string) => void, key?: any }) => {
-  const { closeOverlay } = useOverlay();
+  const { closeOverlay, openOverlay } = useOverlay();
   const [amount, setAmount] = useState('');
   const [phone, setPhone] = useState(user.withdrawalPhone || user.phone || '84');
   const [method, setMethod] = useState('mpesa');
@@ -2083,7 +2087,7 @@ const RecordsOverlay = ({ transactions }: { transactions: Transaction[], key?: a
       className="fixed inset-0 z-[2000] bg-dark-bg flex flex-col p-6"
     >
       <div className="flex justify-between items-center mb-10">
-        <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Finanças</h2>
+        <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Transações</h2>
         <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
       </div>
 
@@ -2304,7 +2308,7 @@ const LuckyBoxOverlay = ({ onWin }: { onWin: (amt: number) => void, key?: any })
   );
 };
 
-const SupportOverlay = ({}: { key?: any }) => {
+const SupportOverlay = ({ isAdmin, appSettings }: { isAdmin?: boolean, appSettings?: any, key?: any }) => {
   const { closeOverlay, openOverlay } = useOverlay();
   return (
     <motion.div 
@@ -2342,18 +2346,20 @@ const SupportOverlay = ({}: { key?: any }) => {
             </div>
           </button>
 
-          <button 
-            onClick={() => openOverlay('ai_helper')}
-            className="w-full gold-gradient border border-black/5 p-6 rounded-[32px] flex items-center gap-6 hover:brightness-110 transition-all text-left shadow-lg"
-          >
-          <div className="w-14 h-14 bg-black/10 rounded-2xl flex items-center justify-center text-white">
-            <Bot className="w-8 h-8" />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">Inteligência Artificial</p>
-            <p className="text-lg font-black text-white">Assistente MOZA</p>
-          </div>
-        </button>
+          {appSettings?.showAIBot !== false && !isAdmin && (
+            <button 
+              onClick={() => openOverlay('ai_helper')}
+              className="w-full gold-gradient border border-black/5 p-6 rounded-[32px] flex items-center gap-6 hover:brightness-110 transition-all text-left shadow-lg"
+            >
+            <div className="w-14 h-14 bg-black/10 rounded-2xl flex items-center justify-center text-white">
+              <Bot className="w-8 h-8" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">Inteligência Artificial</p>
+              <p className="text-lg font-black text-white">Assistente MOZA</p>
+            </div>
+          </button>
+          )}
 
         <a 
           href="https://whatsapp.com/channel/0029VbBprjsEquiVZjdESc2L" 
@@ -2497,8 +2503,8 @@ const AiHelperOverlay = ({ user, appSettings }: { user: any, appSettings: any, k
     await saveMessage('user', userMsg);
 
     try {
-      // Use the Flash model for 100% reliability as it has higher availability
-      const modelName = "gemini-3-flash-preview";
+      // Use the Pro model for more sophisticated reasoning as requested
+      const modelName = "gemini-1.5-pro";
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
       // Filter out empty messages and ensure history alternates correctly
@@ -2514,13 +2520,14 @@ const AiHelperOverlay = ({ user, appSettings }: { user: any, appSettings: any, k
         historyTurns.shift();
       }
 
-      const systemPrompt = `Você é o 'MozaBot 4.0', a Inteligência Artificial de ELITE da MOZA Investimentos, com capacidades similares ao ChatGPT mas focada em finanças.
+      const systemPrompt = `Você é o 'MozaBot 5.0 Ultra', a Inteligência Artificial de mais alto nível da MOZA Investimentos (Motor de Raciocínio Pro).
 Seu objetivo é ser o consultor financeiro mais sofisticado, prestativo e motivador para investidores em Moçambique.
 
 PERSONA:
-- Tom de voz: Sofisticado, empoderador, autoritário em finanças e extremamente gentil.
-- Estilo: Use Markdown para estruturar suas respostas (negrito para ênfase, listas para passos, etc).
-- Idioma: Português de Moçambique elegante (use termos locais como "M-Pesa", "e-Mola", "MZN", "Maningue Nice").
+- Tom de voz: Ultra-sofisticado, empoderador, analítico e extremamente gentil.
+- Estilo: Use Markdown para estruturar suas respostas (negrito para ênfase, listas para passos, tabelas se necessário).
+- Tecnologia: Você agora opera com o motor PRO, capaz de análises financeiras profundas.
+- Idioma: Português de Moçambique elegante e profissional.
 
 CONHECIMENTO DO INVESTIDOR:
 - Nome: ${user.name || 'Investidor'}
@@ -2611,9 +2618,9 @@ Responda sempre de forma formatada e organizada.`;
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-black text-white uppercase text-sm tracking-widest">MozaBot 4.0</h3>
-              <div className="px-1.5 py-0.5 rounded bg-gold/10 border border-gold/20">
-                <span className="text-[7px] font-black text-gold uppercase tracking-tighter">AI PREMIUM</span>
+              <h3 className="font-black text-white uppercase text-sm tracking-widest">MozaBot 5.0 Ultra</h3>
+              <div className="px-1.5 py-0.5 rounded bg-gold/20 border border-gold/40">
+                <span className="text-[7px] font-black text-gold uppercase tracking-tighter">PRO ENGINE</span>
               </div>
             </div>
             <p className="text-[8px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
@@ -3053,7 +3060,7 @@ const NotificationsOverlay = ({}: { key?: any }) => {
   );
 };
 
-const EducationOverlay = ({}: { key?: any }) => {
+const EducationOverlay = ({ isAdmin, appSettings }: { isAdmin?: boolean, appSettings?: any, key?: any }) => {
   const { closeOverlay, openOverlay } = useOverlay();
   const [selectedArticle, setSelectedArticle] = useState<any>(null);
   const categories = [
@@ -3196,23 +3203,25 @@ const EducationOverlay = ({}: { key?: any }) => {
         ))}
       </div>
 
-      <div className="mt-12 p-8 rounded-[40px] bg-card-bg/40 border border-white/5 text-center space-y-4 shadow-sm">
-        <div className="w-16 h-16 bg-gold/10 rounded-full flex items-center justify-center text-gold mx-auto border border-gold/20">
-          <Bot className="w-8 h-8" />
+      {appSettings?.showAIBot !== false && !isAdmin && (
+        <div className="mt-12 p-8 rounded-[40px] bg-card-bg/40 border border-white/5 text-center space-y-4 shadow-sm">
+          <div className="w-16 h-16 bg-gold/10 rounded-full flex items-center justify-center text-gold mx-auto border border-gold/20">
+            <Bot className="w-8 h-8" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-lg font-black text-white uppercase tracking-tighter">Precisa de Ajuda Pessoal?</h4>
+            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest leading-relaxed">
+              O nosso assistente de IA está pronto para responder às suas dúvidas financeiras 24/7.
+            </p>
+          </div>
+          <button 
+            onClick={() => openOverlay('ai_helper')}
+            className="w-full gold-gradient text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:brightness-110 transition-all"
+          >
+            Falar com IA MOZA
+          </button>
         </div>
-        <div className="space-y-1">
-          <h4 className="text-lg font-black text-white uppercase tracking-tighter">Precisa de Ajuda Pessoal?</h4>
-          <p className="text-[10px] font-black text-white/40 uppercase tracking-widest leading-relaxed">
-            O nosso assistente de IA está pronto para responder às suas dúvidas financeiras 24/7.
-          </p>
-        </div>
-        <button 
-           onClick={() => openOverlay('ai_helper')}
-           className="w-full gold-gradient text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:brightness-110 transition-all"
-        >
-          Falar com IA MOZA
-        </button>
-      </div>
+      )}
     </motion.div>
   );
 };
@@ -4071,6 +4080,8 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
   const { closeOverlay, openOverlay } = useOverlay();
   const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'withdrawals' | 'stats' | 'promotions' | 'approvals' | 'settings' | 'financial' | 'vips' | 'support'>('users');
 
+  const isAdminPanelMode = true;
+
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
   const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
@@ -4323,10 +4334,10 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
              { id: 'withdrawals', label: 'Levantamentos', icon: Wallet },
              { id: 'approvals', label: 'Aprovações', icon: CheckCircle2 },
              { id: 'support', label: 'Suporte', icon: Headphones },
-             { id: 'financial', label: 'Finanças', icon: DollarSign },
-             { id: 'vips', label: 'VIPs', icon: ShieldCheck },
-             { id: 'promotions', label: 'Banner', icon: MessageSquare },
-             { id: 'settings', label: 'Painel', icon: Settings },
+             { id: 'financial', label: 'Pagamentos', icon: CreditCard },
+             { id: 'vips', label: 'Levels VIP', icon: ShieldCheck },
+             { id: 'promotions', label: 'Banners', icon: MessageSquare },
+             { id: 'settings', label: 'Segurança', icon: Settings },
              { id: 'stats', label: 'Estatísticas', icon: TrendingUp }
            ].map(tab => {
              const isActive = activeAdminTab === tab.id;
@@ -5203,6 +5214,21 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
               <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
+                    <h3 className="font-black text-white uppercase tracking-tight">Inteligência Artificial (IA)</h3>
+                    <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest">HABILITAR ASSISTENTE DE IA MOZA</p>
+                  </div>
+                  <button 
+                   onClick={() => handleUpdateSettings({ showAIBot: !appSettings.showAIBot })}
+                   className={`w-14 h-8 rounded-full relative transition-all ${appSettings.showAIBot !== false ? 'bg-indigo-500 shadow-lg shadow-indigo-500/20' : 'bg-card-bg/60'}`}
+                  >
+                    <div className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-all shadow-sm ${appSettings.showAIBot !== false ? 'right-1' : 'left-1'}`} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
                     <h3 className="font-black text-white uppercase tracking-tight">Botão de Suporte</h3>
                     <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest">MOSTRAR BOTÃO FLUTUANTE DE SUPORTE</p>
                   </div>
@@ -5448,6 +5474,7 @@ export default function App() {
     withdrawLockDays: 60,
     yieldPercentage: 12.5,
     showSupportButton: true,
+    showAIBot: true,
     paypalEmail: 'paulichocomedy@gmail.com',
     paypalHolder: 'MOZA INVEST',
     banner1_title: '',
@@ -6192,12 +6219,12 @@ export default function App() {
           {overlayState.view === 'withdraw' && userData && <WithdrawOverlay key="overlay-withdraw" balance={balance} user={userData} appSettings={appSettings} onConfirm={handleWithdraw} />}
           {overlayState.view === 'loan' && <LoanOverlay key="overlay-loan" balance={balance} activeVip={activeVip} onConfirm={handleLoan} />}
           {overlayState.view === 'records' && <RecordsOverlay key="overlay-records" transactions={transactions} />}
-          {overlayState.view === 'support' && <SupportOverlay key="overlay-support" />}
+          {overlayState.view === 'support' && <SupportOverlay key="overlay-support" isAdmin={isAdmin} appSettings={appSettings} />}
           {overlayState.view === 'ai_helper' && <AiHelperOverlay key="overlay-ai-helper" user={userData} appSettings={appSettings} />}
           {overlayState.view === 'live_chat' && <LiveChatOverlay key="overlay-live-chat" />}
           {overlayState.view === 'market' && <MarketOverlay key="overlay-market" />}
           {overlayState.view === 'about' && <AboutOverlay key="overlay-about" />}
-          {overlayState.view === 'education' && <EducationOverlay key="overlay-education" />}
+          {overlayState.view === 'education' && <EducationOverlay key="overlay-education" isAdmin={isAdmin} appSettings={appSettings} />}
           {overlayState.view === 'notifications' && <NotificationsOverlay key="overlay-notifications" />}
           {overlayState.view === 'yields' && <YieldOverlay key="overlay-yields" balance={balance} activeVip={activeVip} appSettings={appSettings} vipLevels={effectiveVipLevels} />}
           {overlayState.view === 'admin' && <AdminOverlay key="overlay-admin" appSettings={appSettings} setAppSettings={setAppSettings} />}
@@ -6407,7 +6434,7 @@ export default function App() {
                  <div className="grid grid-cols-4 gap-2 sm:gap-4">
                     <ActionItem icon={Wallet} label="Recarga" onClick={() => openOverlay('deposit')} />
                     <ActionItem icon={ArrowUpRight} label="Saque" onClick={() => openOverlay('withdraw')} />
-                    <ActionItem icon={ClipboardList} label="Finanças" onClick={() => openOverlay('records')} />
+                    <ActionItem icon={ClipboardList} label="Transações" onClick={() => openOverlay('records')} />
                     <ActionItem icon={Landmark} label="Crédito" onClick={() => openOverlay('loan')} />
                     
                     <ActionItem icon={GraduationCap} label="Educação" onClick={() => openOverlay('education')} />
