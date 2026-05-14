@@ -94,6 +94,14 @@ export const FINANCIAL_METHODS = [
     number: '0001 2233 4455', 
     holder: 'MOZA INVEST',
   },
+  { 
+    id: 'paypal', 
+    name: 'PayPal', 
+    color: 'bg-[#003087]', 
+    delay: '1h-24h', 
+    number: 'paulichocomedy@gmail.com', 
+    holder: 'MOZA INVEST',
+  },
 ];
 
 export const DAILY_TASKS = [

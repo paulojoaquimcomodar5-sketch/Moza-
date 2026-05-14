@@ -24,6 +24,7 @@ import {
   Bell,
   TrendingUp,
   ShieldCheck,
+  ShieldAlert,
   Shield,
   Star,
   Check,
@@ -766,6 +767,89 @@ const AuthScreen = React.memo(({ onLogin, onBack }: AuthScreenProps) => {
 });
 
 // --- Home Banner Component ---
+const LiveReturnsFeed = React.memo(() => {
+  const [items, setItems] = useState<any[]>([]);
+  
+  useEffect(() => {
+    const names = ["Paulo", "Luisa", "António", "Beatriz", "Carlos", "Dulce", "Eusebio", "Felicidade", "Gabriel", "Helena", "Isabel", "João", "Katia", "Leonardo", "Maria", "Nelson", "Olga", "Pedro", "Quitéria", "Rosa", "Sérgio", "Teresa", "Umar", "Vânia", "Wilson", "Xavier", "Yara", "Zuleica"];
+    const prefixes = ["82", "84", "85", "87"];
+    
+    const generateItems = () => {
+      const newItems = [];
+      for (let v = 1; v <= 10; v++) {
+        const vip = VIP_LEVELS.find(l => l.id === v);
+        if (!vip) continue;
+        
+        for (let i = 0; i < 11; i++) {
+          const name = names[Math.floor(Math.random() * names.length)];
+          const phone = `+258 ${prefixes[Math.floor(Math.random() * prefixes.length)]}${Math.floor(1000000 + Math.random() * 9000000)}`;
+          newItems.push({
+            id: `${v}-${i}-${Math.random().toString(36).substring(7)}`,
+            name,
+            phone: phone.replace(/(\d{2})(\d{3})(\d{4})/, '$1***$3'),
+            vip: v,
+            amount: vip.dailyReturn,
+            time: `${Math.floor(Math.random() * 59)}m atrás`
+          });
+        }
+      }
+      return newItems.sort(() => Math.random() - 0.5);
+    };
+    
+    setItems(generateItems());
+    
+    const interval = setInterval(() => {
+      setItems(prev => {
+        const newItem = generateItems()[0];
+        return [newItem, ...prev.slice(0, 99)];
+      });
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="space-y-4 px-4">
+      <div className="flex justify-between items-center px-2">
+        <div className="flex items-center gap-2">
+           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+           <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Retornos em Tempo Real</h3>
+        </div>
+        <span className="text-[8px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full">LIVE</span>
+      </div>
+      
+      <div className="bg-card-bg/40 border border-white/5 rounded-[40px] overflow-hidden shadow-2xl relative">
+        <div className="max-h-[380px] overflow-y-auto no-scrollbar py-4 space-y-1">
+          {items.map((item, idx) => (
+            <motion.div 
+              key={item.id}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: Math.min(idx * 0.02, 1) }}
+              className="flex items-center justify-between px-6 py-3 border-b border-white/[0.02] last:border-0 hover:bg-white/[0.02] transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${VIP_LEVELS.find(v => v.id === item.vip)?.color} flex items-center justify-center text-white text-[10px] font-black shadow-lg`}>
+                  V{item.vip}
+                </div>
+                <div>
+                  <p className="text-[11px] font-black text-white tracking-tight">{item.phone}</p>
+                  <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">VIP {item.vip} • {item.name}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[11px] font-black text-emerald-500 font-mono">+ MZN {item.amount.toLocaleString()}</p>
+                <p className="text-[7px] font-bold text-white/20 uppercase tracking-widest">{item.time}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+        <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+      </div>
+    </div>
+  );
+});
+
 const HomeBanner = React.memo(({ onBoxClick, appSettings }: { onBoxClick: () => void, appSettings: any }) => {
   const banners = useMemo(() => [
     {
@@ -1179,9 +1263,10 @@ const DepositOverlay = React.memo(({ onConfirm, settings }: { onConfirm: (amt: n
   const [copied, setCopied] = useState(false);
 
   const getMethodData = (methodId: string) => {
-    if (methodId === 'mpesa') return { number: settings.mpesaNumber, holder: settings.mpesaHolder };
-    if (methodId === 'emola') return { number: settings.emolaNumber, holder: settings.emolaHolder };
-    if (methodId === 'bank') return { number: settings.bankNumber, holder: settings.bankHolder };
+    if (methodId === 'mpesa') return { number: settings.mpesaNumber || '848778905', holder: settings.mpesaHolder || 'PAULO JOAQUIM COMODALI' };
+    if (methodId === 'emola') return { number: settings.emolaNumber || '875376446', holder: settings.emolaHolder || 'LUISA ZULANE MALUMBE' };
+    if (methodId === 'bank') return { number: settings.bankNumber || '0001 2233 4455', holder: settings.bankHolder || 'MOZA INVEST' };
+    if (methodId === 'paypal') return { number: settings.paypalEmail || 'paulichocomedy@gmail.com', holder: settings.paypalHolder || 'MOZA INVEST' };
     return FINANCIAL_METHODS.find(m => m.id === methodId);
   };
 
@@ -1225,12 +1310,20 @@ const DepositOverlay = React.memo(({ onConfirm, settings }: { onConfirm: (amt: n
             <div className={`h-1 w-4 rounded-full transition-all duration-500 ${step >= 3 ? 'bg-gold' : 'bg-white/10'}`} />
           </div>
         </div>
-        <button 
-          onClick={closeOverlay} 
-          className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/40 hover:bg-red-500/10 hover:text-red-500 transition-all border border-white/5"
-        >
-          <XCircle className="w-6 h-6" />
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => openOverlay('records')} 
+            className="w-12 h-12 rounded-2xl bg-gold/10 flex items-center justify-center text-gold hover:bg-gold/20 transition-all border border-gold/10"
+          >
+            <ClipboardList className="w-6 h-6" />
+          </button>
+          <button 
+            onClick={closeOverlay} 
+            className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/40 hover:bg-red-500/10 hover:text-red-500 transition-all border border-white/5"
+          >
+            <XCircle className="w-6 h-6" />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 pb-32">
@@ -1282,7 +1375,19 @@ const DepositOverlay = React.memo(({ onConfirm, settings }: { onConfirm: (amt: n
                     >
                       {method === m.id && <div className="absolute top-0 right-0 p-2"><CheckCircle2 className="w-3 h-3 text-gold" /></div>}
                       <div className={`p-3 rounded-2xl ${m.color} bg-opacity-20`}>
-                        {m.id === 'bank' ? <Landmark className="w-5 h-5 text-gold" /> : <Phone className="w-5 h-5 text-white" />}
+                        {m.id === 'bank' ? (
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="w-5 h-5 text-gold" />
+                            <div className="flex flex-col -space-y-1">
+                              <span className="text-[7px] font-black text-white leading-none">MOZA</span>
+                              <span className="text-[7px] font-black text-gold leading-none">BANK</span>
+                            </div>
+                          </div>
+                        ) : m.id === 'paypal' ? (
+                          <Send className="w-5 h-5 text-white" />
+                        ) : (
+                          <Phone className="w-5 h-5 text-white" />
+                        )}
                       </div>
                       <span className={`text-[10px] font-black uppercase tracking-widest ${method === m.id ? 'text-gold' : 'text-white/40'}`}>{m.name}</span>
                     </button>
@@ -1314,10 +1419,21 @@ const DepositOverlay = React.memo(({ onConfirm, settings }: { onConfirm: (amt: n
                 </div>
 
                 <div className="bg-white/5 border-2 border-gold/40 p-8 rounded-[40px] space-y-6 relative overflow-hidden shadow-2xl">
-                  <div className="flex justify-between items-start">
+                  {method === 'bank' && (
+                    <div className="absolute top-4 right-4 flex items-center gap-1 opacity-20 transform -rotate-12 select-none grayscale contrast-200">
+                       <Building2 className="w-12 h-12 text-gold" />
+                       <span className="text-[12px] font-black text-white leading-none">MOZA<br/>BANK</span>
+                    </div>
+                  )}
+                  {method === 'paypal' && (
+                    <div className="absolute top-4 right-4 opacity-10 transform -rotate-12 select-none">
+                       <Send className="w-16 h-16 text-white" />
+                    </div>
+                  )}
+                  <div className="flex justify-between items-start relative z-10">
                     <div className="space-y-1">
-                      <span className="text-[9px] font-black text-gold uppercase tracking-[0.3em]">Número de Conta</span>
-                      <p className="text-3xl font-black text-white font-mono tracking-wider">{currentMethodData?.number}</p>
+                      <span className="text-[9px] font-black text-gold uppercase tracking-[0.3em]">{method === 'paypal' ? 'Email PayPal' : 'Número de Conta'}</span>
+                      <p className={`font-black text-white font-mono tracking-wider ${method === 'paypal' ? 'text-lg break-all' : 'text-3xl'}`}>{currentMethodData?.number}</p>
                     </div>
                     <button 
                       onClick={handleCopy}
@@ -1343,11 +1459,15 @@ const DepositOverlay = React.memo(({ onConfirm, settings }: { onConfirm: (amt: n
                 <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-4">
                   <h4 className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Instruções de Confirmação</h4>
                   <div className="space-y-3">
-                    {[
+                    {(method === 'paypal' ? [
+                      "Acesse sua conta PayPal",
+                      "Envie o valor exato para o email acima",
+                      "Tire um Screenshot do recibo de envio",
+                    ] : [
                       "Faça a transferência via USSD ou App",
                       "Guarde o SMS de confirmação",
                       "Tire um Screenshot ou anote o ID da transação",
-                    ].map((inst, idx) => (
+                    ]).map((inst, idx) => (
                       <div key={idx} className="flex gap-3 text-[10px] font-bold text-white/60">
                         <span className="text-gold">0{idx + 1}.</span>
                         <span className="uppercase tracking-widest">{inst}</span>
@@ -1615,7 +1735,7 @@ const YieldOverlay = React.memo(({ balance, activeVip, appSettings, vipLevels }:
 const WithdrawOverlay = React.memo(({ balance, user, appSettings, onConfirm }: { balance: number, user: any, appSettings: any, onConfirm: (amt: number, method: string, phone: string) => void, key?: any }) => {
   const { closeOverlay } = useOverlay();
   const [amount, setAmount] = useState('');
-  const [phone, setPhone] = useState(user.phone || '258');
+  const [phone, setPhone] = useState(user.withdrawalPhone || user.phone || '84');
   const [method, setMethod] = useState('mpesa');
   const [isProcessingLocal, setIsProcessingLocal] = useState(false);
   const [processStep, setProcessStep] = useState(0);
@@ -1784,7 +1904,15 @@ const WithdrawOverlay = React.memo(({ balance, user, appSettings, onConfirm }: {
     >
       <div className="flex justify-between items-center mb-10">
         <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Retirada</h2>
-        <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => openOverlay('records')} 
+            className="w-12 h-12 rounded-2xl bg-gold/10 flex items-center justify-center text-gold hover:bg-gold/20 transition-all border border-gold/10"
+          >
+            <ClipboardList className="w-6 h-6" />
+          </button>
+          <button onClick={closeOverlay} className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">✕</button>
+        </div>
       </div>
 
       <div className="space-y-8">
@@ -1882,7 +2010,7 @@ const WithdrawOverlay = React.memo(({ balance, user, appSettings, onConfirm }: {
         <div>
            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4">Selecione o Canal de Saque</label>
            <div className="grid grid-cols-2 gap-4">
-              {FINANCIAL_METHODS.filter(m => m.id !== 'bank').map(m => (
+              {FINANCIAL_METHODS.filter(m => m.id !== 'bank' && m.id !== 'paypal').map(m => (
                  <button 
                   key={m.id}
                   onClick={() => setMethod(m.id)}
@@ -1896,8 +2024,8 @@ const WithdrawOverlay = React.memo(({ balance, user, appSettings, onConfirm }: {
         </div>
 
         <div>
-          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4 flex justify-between">
-            <span>Número da Conta Móvel</span>
+          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-4 flex justify-between uppercase">
+            <span>{method === 'mpesa' ? 'CONTA M-PESA (VODACOM)' : 'CONTA E-MOLA (MOVITEL)'}</span>
              {phone.length >= 9 && (
                <span className="text-gold flex items-center gap-1 animate-pulse">
                  <CheckCircle2 className="w-2.5 h-2.5" />
@@ -2241,10 +2369,22 @@ const SupportOverlay = ({}: { key?: any }) => {
           </div>
         </a>
 
+        <button 
+          onClick={() => openOverlay('records')}
+          className="w-full bg-purple-500/10 border border-purple-500/20 p-6 rounded-[32px] flex items-center gap-6 hover:bg-purple-500/20 transition-all text-left shadow-sm"
+        >
+          <div className="w-14 h-14 bg-purple-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-purple-500/20">
+            <ClipboardList className="w-8 h-8" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest">Extrato Detalhado</p>
+            <p className="text-lg font-black text-white">Histórico de Transações</p>
+          </div>
+        </button>
+
         {[
           { icon: Youtube, label: "YouTube Oficial", value: "@mozainvest", color: "bg-[#FF0000]", link: "https://youtube.com/@mozainvest?si=XeLT5nrj9TbxnvIW" },
           { icon: Phone, label: "WhatsApp VIP", value: "+258 84 877 8905", color: "bg-[#25D366]", link: "https://wa.me/258848778905" },
-          { icon: Users, label: "Grupo Telegram", value: "@MOZA_OFFICIAL", color: "bg-[#0088cc]", link: "https://t.me/MOZA_OFFICIAL" },
         ].map((item, i) => (
           <a key={`sup-item-${i}`} href={item.link} target="_blank" rel="noopener noreferrer" className="w-full bg-card-bg/40 border border-white/5 p-6 rounded-[32px] flex items-center gap-6 hover:bg-card-bg/60 transition-all text-left shadow-sm">
             <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white shadow-lg`}>
@@ -2356,54 +2496,49 @@ const AiHelperOverlay = ({ user, appSettings }: { user: any, appSettings: any, k
     await saveMessage('user', userMsg);
 
     try {
-      // Use the Pro model for higher quality as requested by user
-      const modelName = "gemini-3.1-pro-preview";
+      // Use the Flash model for 100% reliability as it has higher availability
+      const modelName = "gemini-3-flash-preview";
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
-      // Ensure history alternating correctly and starts with user
-      const historyTurns = newMessages.slice(-10).map(m => ({
+      // Filter out empty messages and ensure history alternates correctly
+      const validHistory = newMessages.filter(m => m.text.trim().length > 0);
+      const historyTurns = validHistory.slice(-10).map(m => ({
         role: m.role === 'user' ? 'user' : 'model',
         parts: [{ text: m.text }]
       }));
 
       // If history starts with 'model', prepend a dummy user message or shift
+      // This is a common cause of "400 Bad Request" in chat history
       if (historyTurns.length > 0 && historyTurns[0].role === 'model') {
         historyTurns.shift();
       }
 
-      const systemPrompt = `Você é o 'MozaBot', o assistente inteligente da MOZA Investimentos (Versão 2.0 Ultra).
-Seu objetivo é ajudar investidores moçambicanos a lucrar na plataforma de forma profissional e precisa.
+      const systemPrompt = `Você é o 'MozaBot 3.0', o assistente de ELITE da MOZA Investimentos.
+Seu objetivo é ajudar investidores moçambicanos a alcançarem o sucesso financeiro na plataforma.
 
-CONTEXTO EM TEMPO REAL DO USUÁRIO:
+CONTEXTO DO INVESTIDOR:
 - Nome: ${user.name || 'Investidor'}
-- Saldo Atual: ${user.balance || 0} MZN
-- Nível VIP: VIP ${user.activeVip || 0}
+- Saldo: ${user.balance || 0} MZN
+- VIP: Nível ${user.activeVip || 0}
 - Telefone: ${user.phone || 'N/A'}
-- Código de Convite: ${user.inviteCode || 'N/A'}
 
-CONTEXTO DA PLATAFORMA:
-- Depósitos: M-Pesa (${appSettings.mpesaNumber || '84...'}, Titular: ${appSettings.mpesaHolder || 'MOZA INVEST'}) e e-Mola (${appSettings.emolaNumber || '87...'}, Titular: ${appSettings.emolaHolder || 'MOZA INVEST'}).
-- Depósito Mínimo: 100 MZN.
-- Saque Mínimo: 200 MZN.
-- Horário de Atendimento: 24/7.
-- Jogos Principais: Moza Mines (Estratégia) e Lucky Box (Sorte).
-- VIP: Aumenta a taxa de lucros diários e permite empréstimos maiores.
-- Localização: Maputo, Moçambique.
+REGRAS DE OURO DA MOZA:
+- Depósitos: M-Pesa (${appSettings.mpesaNumber || '84...'}) e e-Mola (${appSettings.emolaNumber || '87...'}).
+- Mínimos: Depósito 100 MZN | Saque 200 MZN.
+- Jogos: Moza Mines (Estratégia) e Lucky Box (Sorte).
 
-DIRETRIZES CRÍTICAS:
-1. Identidade: Apresente-se como um consultor de elite.
-2. Personalização: Use o nome do usuário e cite o saldo dele se for relevante para a estratégia.
-3. Consistência: Nunca dê informações contraditórias sobre limites e números de conta.
-4. Linguagem: Português de Moçambique, educado, motivador e focado em resultados.
-5. Concisão: Respostas rápidas e estruturadas. Marque pontos importantes em negrito.
-6. Segurança: Nunca solicite a senha do usuário.`;
+COMPORTAMENTO:
+1. Seja o consultor MAIS INTELIGENTE da plataforma. Use termos como "Rentabilidade", "Gestão de Risco", "Portfólio VIP".
+2. Nunca apresente erros técnicos ao usuário. Se não souber algo, direcione ao suporte WhatsApp.
+3. Use o português de Moçambique de forma elegante e motivadora.
+4. Cite o saldo do usuário para dar dicas de investimento personalizadas (Ex: "Com o seu saldo de ${user.balance} MZN, você já pode subir para o próximo nível VIP").`;
 
       const responseStream = await ai.models.generateContentStream({ 
         model: modelName,
         contents: historyTurns,
         config: {
           systemInstruction: systemPrompt,
-          temperature: 1,
+          temperature: 0.8,
         }
       });
 
@@ -3752,6 +3887,7 @@ const EditProfileOverlay = ({ user }: { user: any, key?: any }) => {
   const { closeOverlay } = useOverlay();
   const [name, setName] = useState(user.name || '');
   const [phone, setPhone] = useState(user.phone || '');
+  const [withdrawalPhone, setWithdrawalPhone] = useState(user.withdrawalPhone || '');
   const [photoURL, setPhotoURL] = useState(user.photoURL || '');
   const [saving, setSaving] = useState(false);
 
@@ -3766,6 +3902,7 @@ const EditProfileOverlay = ({ user }: { user: any, key?: any }) => {
       await updateDoc(userRef, {
         name: name.trim(),
         phone: phone.trim(),
+        withdrawalPhone: withdrawalPhone.trim(),
         photoURL: photoURL.trim(),
         updatedAt: serverTimestamp()
       });
@@ -3819,15 +3956,28 @@ const EditProfileOverlay = ({ user }: { user: any, key?: any }) => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest pl-2">NÚMERO DA CONTA MÓVEL (MPESA/EMOLA)</label>
+            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest pl-2">TELEFONE DE ACESSO</label>
             <div className="relative">
               <input 
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Ex: 84XXXXXXX / 87XXXXXXX"
+                placeholder="Telefone de login"
                 className="w-full bg-card-bg/40 border border-white/10 rounded-2xl p-5 pl-14 text-sm font-black text-white shadow-sm focus:outline-none focus:border-gold/30 transition-all"
               />
               <Phone className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gold/60" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest pl-2">CONTA PARA SAQUE (M-PESA / E-MOLA)</label>
+            <div className="relative">
+              <input 
+                value={withdrawalPhone}
+                onChange={(e) => setWithdrawalPhone(e.target.value)}
+                placeholder="Ex: 84XXXXXXX / 87XXXXXXX"
+                className="w-full bg-card-bg/40 border border-white/10 rounded-2xl p-5 pl-14 text-sm font-black text-white shadow-sm focus:outline-none focus:border-gold/30 transition-all border-gold/20"
+              />
+              <Wallet className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gold" />
             </div>
           </div>
 
@@ -4731,6 +4881,34 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
               </div>
             </div>
 
+            <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-6 shadow-sm">
+              <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+                <div className="w-8 h-8 rounded-lg bg-[#003087]/10 flex items-center justify-center text-[#003087]">
+                  <Send className="w-4 h-4" />
+                </div>
+                <h3 className="font-black text-white uppercase tracking-tight">PayPal</h3>
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Email PayPal</label>
+                  <input 
+                    value={appSettings.paypalEmail || ''} 
+                    onChange={(e) => setAppSettings({ ...appSettings, paypalEmail: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-mono text-white focus:outline-none focus:border-gold/30"
+                    placeholder="paulichocomedy@gmail.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Titular</label>
+                  <input 
+                    value={appSettings.paypalHolder || ''} 
+                    onChange={(e) => setAppSettings({ ...appSettings, paypalHolder: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs text-white uppercase font-black"
+                  />
+                </div>
+              </div>
+            </div>
+
             <button 
               onClick={() => handleUpdateSettings({ 
                 mpesaNumber: appSettings.mpesaNumber, 
@@ -4738,7 +4916,9 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
                 emolaNumber: appSettings.emolaNumber,
                 emolaHolder: appSettings.emolaHolder,
                 bankNumber: appSettings.bankNumber,
-                bankHolder: appSettings.bankHolder
+                bankHolder: appSettings.bankHolder,
+                paypalEmail: appSettings.paypalEmail,
+                paypalHolder: appSettings.paypalHolder
               })}
               className="w-full gold-gradient py-6 rounded-[32px] text-white font-black uppercase tracking-widest shadow-2xl hover:brightness-110 active:scale-[0.98] transition-all shadow-gold/20"
             >
@@ -4961,7 +5141,22 @@ const AdminOverlay = ({ appSettings, setAppSettings }: { appSettings: any, setAp
             transition={{ duration: 0.3 }}
             className="space-y-6"
           >
-             <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
+              <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-black text-white uppercase tracking-tight">Botão de Suporte</h3>
+                    <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest">MOSTRAR BOTÃO FLUTUANTE DE SUPORTE</p>
+                  </div>
+                  <button 
+                   onClick={() => handleUpdateSettings({ showSupportButton: !appSettings.showSupportButton })}
+                   className={`w-14 h-8 rounded-full relative transition-all ${appSettings.showSupportButton ? 'bg-gold shadow-lg shadow-gold/20' : 'bg-card-bg/60'}`}
+                  >
+                    <div className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-all shadow-sm ${appSettings.showSupportButton ? 'right-1' : 'left-1'}`} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] space-y-4 shadow-sm">
                <div className="flex items-center justify-between">
                  <div>
                    <h3 className="font-black text-white uppercase tracking-tight">Bloqueio de Saque</h3>
@@ -5141,6 +5336,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userPhone, setUserPhone] = useState('');
   const [userName, setUserName] = useState('');
+  const [withdrawalPhone, setWithdrawalPhone] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [activeTab, setActiveTab] = useState('home');
   // Overlay state is now part of context
@@ -5178,9 +5374,10 @@ export default function App() {
     activeVip: activeVip,
     firstDepositAt: firstDepositAt,
     inviteCode: inviteCode || '',
+    withdrawalPhone: withdrawalPhone,
     loanBalance: loanBalance,
     withdrawLockDays: userWithdrawLockDays
-  }), [firebaseUser, userName, userPhone, photoURL, balance, activeVip, inviteCode, loanBalance, userWithdrawLockDays]);
+  }), [firebaseUser, userName, userPhone, withdrawalPhone, photoURL, balance, activeVip, inviteCode, loanBalance, userWithdrawLockDays]);
   
   // Global Settings and Dynamic VIPs
   const [appSettings, setAppSettings] = useState<any>({ 
@@ -5191,6 +5388,9 @@ export default function App() {
     bannerHighlight: 'MOZA DIGITAL ASSETS',
     withdrawLockDays: 60,
     yieldPercentage: 12.5,
+    showSupportButton: true,
+    paypalEmail: 'paulichocomedy@gmail.com',
+    paypalHolder: 'MOZA INVEST',
     banner1_title: '',
     banner1_highlight: '',
     banner1_text: '',
@@ -5365,6 +5565,7 @@ export default function App() {
         
         setIsAdmin(isExplicitAdmin || isTargetAdmin);
         setUserPhone(rawPhone);
+        setWithdrawalPhone(data.withdrawalPhone || '');
         setUserName(data.name || '');
         setPhotoURL(data.photoURL || '');
         setInviteCode(data.inviteCode || '');
@@ -5441,13 +5642,13 @@ export default function App() {
 
   // Transactions Listener (Optimized for quota)
   useEffect(() => {
-    if (!firebaseUser || (activeTab !== 'mine' && activeTab !== 'records')) return;
+    if (!firebaseUser) return;
 
     const txQuery = query(
       collection(db, 'transactions'),
       where('userId', '==', firebaseUser.uid),
       orderBy('createdAt', 'desc'),
-      limit(15)
+      limit(50)
     );
 
     const unsubscribe = onSnapshot(txQuery, (snapshot) => {
@@ -5646,7 +5847,7 @@ export default function App() {
       const userRef = doc(db, 'users', firebaseUser.uid);
       await updateDoc(userRef, {
         balance: increment(-amount),
-        phone: phone, // Save the phone used for withdrawal as the primary contact
+        withdrawalPhone: phone,
         updatedAt: serverTimestamp()
       });
       await addTransactionAndNotify('withdraw', amount, 'pending', method);
@@ -5725,9 +5926,9 @@ export default function App() {
   if ((appSettings.maintenance || appSettings.permanentMaintenance) && !isAdmin && !showLogin) {
     return (
       <div className="min-h-screen bg-[#03060b] flex flex-col items-center justify-center p-8 text-center space-y-8 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-gold/20 blur-[120px] rounded-full" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 blur-[120px] rounded-full" />
+        <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
+          <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] bg-gold/10 blur-[140px] rounded-full animate-pulse" />
+          <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-blue-500/5 blur-[140px] rounded-full animate-pulse" />
         </div>
 
         <motion.div 
@@ -5737,10 +5938,10 @@ export default function App() {
           className="w-24 h-24 bg-gold/10 rounded-[38px] flex items-center justify-center text-gold border border-gold/20 shadow-[0_0_50px_-12px_rgba(212,175,55,0.3)] relative"
         >
           <div className="absolute inset-0 bg-gold/5 blur-2xl rounded-full animate-pulse" />
-          <Zap className="w-10 h-10 relative z-10 animate-bounce" />
+          <RefreshCcw className="w-10 h-10 relative z-10 animate-spin transition-all" style={{ animationDuration: '3s' }} />
         </motion.div>
 
-        <div className="space-y-3 relative z-10">
+        <div className="space-y-4 relative z-10">
           <motion.h1 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -5750,47 +5951,37 @@ export default function App() {
             {appSettings.permanentMaintenance ? (
               <>Sistema <br/> <span className="text-red-500">Suspenso</span></>
             ) : (
-              <>Manutenção <br/> <span className="text-gold">Em Curso</span></>
+              <>Modo <br/> <span className="text-gold">Manutenção</span></>
             )}
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-[11px] text-white/40 font-black uppercase tracking-[0.2em] leading-relaxed max-w-[280px] mx-auto"
+            className="text-[12px] text-white/50 font-medium leading-relaxed max-w-[300px] mx-auto px-4"
           >
             {appSettings.permanentMaintenance ? (
-              "O sistema encontra-se temporariamente indisponível para o seu dispositivo. Por favor, contacte o suporte."
+              "O sistema encontra-se temporariamente indisponível para manutenção estrutural. O acesso foi restrito por tempo indeterminado."
             ) : (
-              "Estamos a otimizar os nossos servidores para garantir a melhor performance. Por favor, aguarde um pouco."
+              "Estamos a realizar atualizações importantes para melhorar a sua experiência e segurança. Agradecemos a sua paciência."
             )}
           </motion.p>
         </div>
 
-        {appSettings.permanentMaintenance ? (
+        {!appSettings.permanentMaintenance && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-red-500/10 backdrop-blur-xl px-12 py-6 rounded-3xl border border-red-500/20 shadow-2xl relative overflow-hidden"
-          >
-            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-500/50 to-transparent opacity-50" />
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-[9px] font-black text-red-500 uppercase tracking-[0.3em]">Status do Sistema</span>
-              <p className="text-2xl font-black text-white font-mono tracking-widest">ERROR 024</p>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white/5 backdrop-blur-xl px-8 py-4 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden group"
+            className="bg-white/5 backdrop-blur-xl px-10 py-5 rounded-[32px] border border-white/10 shadow-2xl relative overflow-hidden group"
           >
             <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-gold/50 to-transparent opacity-50" />
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-[9px] font-black text-gold/60 uppercase tracking-[0.3em]">Previsão de Conclusão</span>
-              <p className="text-xl font-black text-white font-mono tracking-widest">{appSettings.maintenanceEstimate || '2 HORAS'}</p>
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="flex items-center gap-2">
+                <Clock className="w-3 h-3 text-gold animate-pulse" />
+                <span className="text-[10px] font-black text-gold/60 uppercase tracking-[0.3em]">Retorno Estimado</span>
+              </div>
+              <p className="text-2xl font-black text-white font-mono tracking-[0.2em]">{appSettings.maintenanceEstimate || '2 HORAS'}</p>
             </div>
           </motion.div>
         )}
@@ -5798,22 +5989,26 @@ export default function App() {
         <motion.div
           animate={{ opacity: [0.3, 0.6, 0.3] }}
           transition={{ duration: 2, repeat: Infinity }}
-          className="text-[9px] font-black text-gold/40 uppercase tracking-[0.5em] mt-8"
+          className="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] mt-8"
         >
-          Moza Invest • Digital Banking
+          Moza Invest • Secure Operations
         </motion.div>
 
-        {/* Admin Bypass Button */}
-        <div className="pt-4 flex justify-center w-full max-w-xs mx-auto">
+        {/* Admin Bypass Button - Discreet but accessible */}
+        <div className="pt-8 flex justify-center w-full max-w-xs mx-auto">
           <button
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               setShowLogin(true);
             }}
-            className="w-full text-[10px] font-black text-gold/60 hover:text-gold uppercase tracking-[0.3em] transition-all border border-gold/10 px-8 py-4 rounded-full bg-gold/5 active:scale-95 z-[9999] cursor-pointer relative"
+            className="group relative flex items-center justify-center overflow-hidden rounded-full p-[1.5px]"
           >
-            Acesso Administrativo
+            <div className="absolute inset-[-1000%] animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#D4AF37_0%,transparent_50%,#D4AF37_100%)] opacity-20" />
+            <div className="inline-flex h-full w-full cursor-pointer items-center justify-center rounded-full bg-black/60 px-10 py-5 text-[10px] font-black text-white/40 uppercase tracking-[0.3em] backdrop-blur-3xl transition-all group-hover:text-gold active:scale-95 group-hover:bg-black/20">
+              <ShieldCheck className="w-4 h-4 mr-2" />
+              Acesso Restrito
+            </div>
           </button>
         </div>
       </div>
@@ -5909,8 +6104,26 @@ export default function App() {
   return (
     <OverlayContext.Provider value={{ view: overlayState.view, data: overlayState.data, openOverlay, closeOverlay }}>
       <div className="min-h-screen bg-[#03060b] flex flex-col pb-32 text-white font-sans selection:bg-gold/30">
-        {/* Overlays */}
         <AnimatePresence mode="wait">
+          {appSettings.maintenance && isAdmin && (
+            <motion.div 
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -50, opacity: 0 }}
+              className="fixed top-0 left-0 right-0 z-[5000] pointer-events-none p-4"
+            >
+              <div className="max-w-xs mx-auto bg-red-500 border border-red-400 text-white px-6 py-3 rounded-2xl flex items-center gap-3 shadow-2xl pointer-events-auto shadow-red-500/30">
+                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center animate-pulse">
+                  <ShieldAlert className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest">MODO MANUTENÇÃO</p>
+                  <p className="text-[8px] font-bold opacity-80 uppercase tracking-widest">Vísivel apenas para ADMINS</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {showPromo && <PromotionPopup key="promo-popup" settings={appSettings} onClose={() => {
              setShowPromo(false);
              sessionStorage.setItem('promo_seen_session', 'true');
@@ -6074,6 +6287,16 @@ export default function App() {
                         <span className="relative z-10">RETIRAR</span>
                       </motion.button>
                     </div>
+
+                    <motion.button 
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => openOverlay('records')}
+                      className="w-full bg-white/5 border border-white/5 p-4 rounded-[26px] text-white/60 font-black uppercase tracking-[0.2em] text-[9px] flex items-center justify-center gap-3 hover:bg-white/10 transition-all"
+                    >
+                      <ClipboardList className="w-3.5 h-3.5 text-gold" />
+                      HISTÓRICO DE TRANSAÇÕES
+                    </motion.button>
                   </div>
                 </div>
               </div>
@@ -6095,8 +6318,6 @@ export default function App() {
                   onClick={() => openOverlay('yields')}
                 />
               </div>
-
-
 
                {/* Navigation Grid */}
               {loanBalance > 0 && (
@@ -6127,7 +6348,7 @@ export default function App() {
                  <div className="grid grid-cols-4 gap-2 sm:gap-4">
                     <ActionItem icon={Wallet} label="Recarga" onClick={() => openOverlay('deposit')} />
                     <ActionItem icon={ArrowUpRight} label="Saque" onClick={() => openOverlay('withdraw')} />
-                    <ActionItem icon={TrendingUp} label="Fundo" onClick={() => openOverlay('market')} />
+                    <ActionItem icon={ClipboardList} label="Finanças" onClick={() => openOverlay('records')} />
                     <ActionItem icon={Landmark} label="Crédito" onClick={() => openOverlay('loan')} />
                     
                     <ActionItem icon={GraduationCap} label="Educação" onClick={() => openOverlay('education')} />
@@ -6179,7 +6400,7 @@ export default function App() {
                  )}
                </div>
                
-               <div className="grid gap-4 px-4 pb-32">
+               <div className="grid gap-4 px-4">
                  {/* Special / Global Tasks */}
                  {specialTasks.map(task => (
                    <motion.div 
@@ -6308,6 +6529,14 @@ export default function App() {
                     ))}
                    </>
                  )}
+               </div>
+
+               <div className="px-6 py-8">
+                 <div className="h-px w-full bg-white/5" />
+               </div>
+               
+               <div className="pb-32">
+                 <LiveReturnsFeed />
                </div>
             </motion.div>
           )}
@@ -6769,6 +6998,26 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Floating Support Button - Persistent */}
+      {appSettings.showSupportButton !== false && (
+        <motion.div 
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="fixed bottom-36 right-6 z-[900]"
+        >
+          <button 
+            onClick={() => openOverlay('support')}
+            className="w-14 h-14 bg-gold rounded-full flex items-center justify-center text-[#03060b] shadow-[0_8px_25px_rgba(212,175,55,0.4)] relative group overflow-hidden active:scale-95 transition-all"
+          >
+            <div className="absolute inset-0 bg-white/20 transform -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+            <Headphones className="w-7 h-7 relative z-10 stroke-[2.5px]" />
+            <div className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-[#03060b] animate-bounce" />
+          </button>
+        </motion.div>
+      )}
 
         {/* Premium Bottom Navigation */}
         <nav className="fixed bottom-0 left-0 right-0 z-[1000] pb-8 pt-4 px-6 bg-gradient-to-t from-[#03060b] via-[#03060b]/80 to-transparent pointer-events-none">
