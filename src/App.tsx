@@ -19,6 +19,7 @@ import {
   Share2,
   ExternalLink,
   LogOut,
+  Info,
   Wallet,
   Settings,
   Bell,
@@ -31,6 +32,7 @@ import {
   Copy,
   Clock,
   Users,
+  Users2,
   User,
   Grid,
   Youtube,
@@ -322,6 +324,15 @@ const AuthScreen = React.memo(({ onLogin, onBack }: AuthScreenProps) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
+  
+  // Detect referral code from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref') || params.get('invite');
+    if (ref) {
+      setInviteCodeInput(ref.toUpperCase());
+    }
+  }, []);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -2074,6 +2085,48 @@ const WithdrawOverlay = React.memo(({ balance, user, appSettings, onConfirm }: {
         <p className="text-[9px] text-white/40 text-center font-bold px-10 leading-relaxed uppercase tracking-widest opacity-60">
           O processamento pode levar de 6 a 48 Horas dependendo da sua operadora.
         </p>
+
+        {/* Withdrawal Rules Section */}
+        <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-6 mt-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-gold/10 flex items-center justify-center text-gold">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <h4 className="text-xs font-black text-white uppercase tracking-widest">Regras de Segurança & Levantamento</h4>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <div className="w-1 h-auto bg-gold/30 rounded-full" />
+              <div>
+                <p className="text-[10px] font-black text-gold uppercase tracking-widest mb-1">Período de Carência</p>
+                <p className="text-[9px] text-white/50 leading-relaxed font-bold uppercase">
+                  Após o depósito inicial, a sua conta entra num período de conformidade de {withdrawLockDays} dias. Este procedimento visa prevenir fraudes e lavagem de capitais.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="w-1 h-auto bg-gold/30 rounded-full" />
+              <div>
+                <p className="text-[10px] font-black text-gold uppercase tracking-widest mb-1">Verificações de Auditoria</p>
+                <p className="text-[9px] text-white/50 leading-relaxed font-bold uppercase">
+                  Cada pedido de saque passa por uma auditoria automática de 3 passos: Validação de Protocolo, Auditoria de Transações e Verificação de Firewall.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="w-1 h-auto bg-gold/30 rounded-full" />
+              <div>
+                <p className="text-[10px] font-black text-gold uppercase tracking-widest mb-1">Limites e Canais</p>
+                <p className="text-[9px] text-white/50 leading-relaxed font-bold uppercase">
+                  O valor mínimo de levantamento é de 500 MZN. Apenas são aceites contas M-Pesa e E-Mola devidamente registadas.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </motion.div>
   );
@@ -5416,6 +5469,62 @@ const PromotionPopup = React.memo(({ settings, onClose }: { settings: any, onClo
   );
 });
 
+const ConfirmExitOverlay = ({ 
+  onConfirm, 
+  onCancel, 
+  title = "Deseja realmente sair?", 
+  message = "Se você sair agora, o seu progresso actual será perdido. Tem certeza de que deseja voltar?" 
+}: { 
+  onConfirm: () => void, 
+  onCancel: () => void,
+  title?: string,
+  message?: string
+}) => {
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[6000] bg-black/90 backdrop-blur-md flex items-center justify-center p-6"
+    >
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        className="w-full max-w-sm bg-card-bg/90 border border-white/10 rounded-[40px] p-10 text-center space-y-8 shadow-2xl relative overflow-hidden"
+      >
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gold/30" />
+        
+        <div className="w-20 h-20 bg-gold/10 rounded-3xl flex items-center justify-center text-gold border border-gold/20 mx-auto shadow-inner">
+           <AlertTriangle className="w-10 h-10" />
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-none">{title}</h3>
+          <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest leading-relaxed">
+            {message}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 pt-4">
+           <button 
+             onClick={onConfirm}
+             className="w-full bg-white text-black py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:brightness-110 active:scale-95 transition-all"
+           >
+             Sim, Confirmar
+           </button>
+           <button 
+             onClick={onCancel}
+             className="w-full bg-white/5 border border-white/10 text-white/60 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-white/10 active:scale-95 transition-all"
+           >
+             Não, Cancelar
+           </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 export default function App() {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -5426,6 +5535,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   // Overlay state is now part of context
   const [overlayState, setOverlayState] = useState<{ view: OverlayType; data: any }>({ view: 'none', data: null });
+  const [confirmConfig, setConfirmConfig] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [balance, setBalance] = useState(0);
   const [activeVip, setActiveVip] = useState(0);
@@ -5571,8 +5681,69 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const openOverlay = (view: OverlayType, data: any = null) => setOverlayState({ view, data });
-  const closeOverlay = () => setOverlayState({ view: 'none', data: null });
+  const openOverlay = (view: OverlayType, data: any = null) => {
+    setOverlayState({ view, data });
+    // Add history entry to intercept back button
+    window.history.pushState({ overlay: view }, '');
+  };
+
+  const closeOverlay = () => {
+    setOverlayState({ view: 'none', data: null });
+    setConfirmConfig(null);
+  };
+
+  const safeClose = () => {
+    // User requested to remove confirmation from recharge, records, and withdrawal
+    // We'll remove it for all overlays to ensure a smooth experience as requested
+    closeOverlay();
+  };
+
+  // Back button interception (Hardware/Browser)
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    // Initial push to have a state to go back from
+    if (window.history.state?.overlay !== 'intercept') {
+      window.history.pushState({ overlay: 'intercept' }, '');
+    }
+
+    const handlePopState = (event: PopStateEvent) => {
+      if (overlayState.view !== 'none') {
+        // Just close the overlay
+        closeOverlay();
+        // Re-push state to keep intercepting
+        window.history.pushState({ overlay: 'intercept' }, '');
+      } else {
+        // We are on main screen, confirm exit
+        setConfirmConfig({
+          title: "Sair do Aplicativo?",
+          message: "Você está prestes a sair da Moza Invest. Deseja realmente encerrar a sessão?",
+          onConfirm: () => {
+            performLogout();
+          }
+        });
+        // Stay on page until confirm
+        window.history.pushState({ overlay: 'intercept' }, '');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [overlayState.view, isLoggedIn]);
+
+  // Prevent accidental exit
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Only warn if user is logged in
+      if (isLoggedIn) {
+        e.preventDefault();
+        e.returnValue = 'Tem certeza de que deseja sair? O seu progresso actual pode ser perdido.';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isLoggedIn]);
 
   // Auth Listener
   useEffect(() => {
@@ -5966,6 +6137,14 @@ export default function App() {
   }, [firebaseUser, addTransactionAndNotify]);
 
   const handleLogout = async () => {
+    setConfirmConfig({
+      title: "Encerrar Sessão?",
+      message: "Tem certeza de que deseja sair da sua conta? Você precisará fazer login novamente para acessar seus investimentos.",
+      onConfirm: performLogout
+    });
+  };
+
+  const performLogout = async () => {
     try {
       await signOut(auth);
       // Explicitly reset states
@@ -5980,6 +6159,7 @@ export default function App() {
       setInviteCode('');
       setActiveTab('home');
       setOverlayState({ view: 'none', data: null });
+      setConfirmConfig(null);
     } catch (error) {
       console.error("Erro ao sair:", error);
     }
@@ -6188,8 +6368,19 @@ export default function App() {
   }
 
   return (
-    <OverlayContext.Provider value={{ view: overlayState.view, data: overlayState.data, openOverlay, closeOverlay }}>
+    <OverlayContext.Provider value={{ view: overlayState.view, data: overlayState.data, openOverlay, closeOverlay: safeClose }}>
       <div className="min-h-screen bg-[#03060b] flex flex-col pb-32 text-white font-sans selection:bg-gold/30">
+        <AnimatePresence>
+          {confirmConfig && (
+            <ConfirmExitOverlay 
+              title={confirmConfig.title}
+              message={confirmConfig.message}
+              onConfirm={confirmConfig.onConfirm} 
+              onCancel={() => setConfirmConfig(null)} 
+            />
+          )}
+        </AnimatePresence>
+
         <AnimatePresence mode="wait">
           {appSettings.maintenance && isAdmin && (
             <motion.div 
@@ -6647,7 +6838,7 @@ export default function App() {
           )}
 
            {activeTab === 'vip' && (
-            <motion.div key="vip" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-8">
+            <motion.div key="vip" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-8 pt-4">
                <div className="text-center space-y-2">
                  <h2 className="text-4xl font-black uppercase tracking-tighter text-gold">Premium VIP</h2>
                  <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.5em] opacity-60">Carteira de Investimentos</p>
@@ -6668,58 +6859,103 @@ export default function App() {
               initial={{ opacity: 0, y: 30 }} 
               animate={{ opacity: 1, y: 0 }} 
               exit={{ opacity: 0, scale: 0.95 }}
-              className="space-y-8 pt-4 pb-20"
+              className="space-y-6 pt-4 pb-20 px-4"
             >
-               <div className="bg-bg-deep/40 backdrop-blur-3xl rounded-[48px] p-10 border border-white/5 relative overflow-hidden shadow-2xl">
-                  <div className="absolute top-0 right-0 p-8 opacity-10">
-                    <Users className="w-32 h-32 text-gold" />
+               {/* Referral Hero */}
+               <div className="bg-bg-deep/40 backdrop-blur-3xl rounded-[40px] p-8 border border-white/5 relative overflow-hidden shadow-2xl">
+                  <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12">
+                    <Users2 className="w-40 h-40 text-gold" />
                   </div>
                   <div className="relative z-10 flex flex-col items-center text-center gap-6">
-                     <div className="w-20 h-20 rounded-3xl bg-gold/10 flex items-center justify-center text-gold border border-gold/20 shadow-lg">
-                        <Users className="w-10 h-10" />
+                     <div className="w-20 h-20 rounded-[32px] bg-gold/10 flex items-center justify-center text-gold border border-gold/20 shadow-lg premium-letters-glow">
+                        <Share2 className="w-10 h-10" />
                      </div>
-                     <div className="space-y-1">
-                        <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Minha Rede</h2>
-                        <p className="text-white/40 text-[10px] font-black uppercase tracking-widest max-w-[240px] leading-relaxed opacity-60">Expanda a sua influência e maximize os seus lucros.</p>
+                     <div className="space-y-2">
+                        <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Central de Convites</h2>
+                        <p className="text-white/40 text-[10px] font-black uppercase tracking-widest max-w-[280px] leading-relaxed opacity-60">
+                           Expanda a sua rede e ganhe <span className="text-gold">15% de bónus</span> sobre cada novo depósito e retornos VIP.
+                        </p>
                      </div>
                      
                      <div className="w-full space-y-4 pt-2">
-                        <div className="bg-white/5 border border-white/5 px-6 py-5 rounded-2xl font-mono text-gold text-center shadow-inner relative group/code premium-letters-glow">
-                           {inviteCode || 'MOZA-VIP'}
+                        <div className="flex gap-2">
+                           <div className="flex-1 bg-white/5 border border-white/10 px-6 py-5 rounded-2xl font-mono text-gold text-lg font-black text-center shadow-inner relative group/code overflow-hidden">
+                              <div className="absolute inset-x-0 bottom-0 h-[2px] bg-gold/30" />
+                              {inviteCode || 'MOZA-VIP'}
+                           </div>
+                           <button 
+                             onClick={() => {
+                               navigator.clipboard.writeText(inviteCode);
+                               alert("Código copiado!");
+                             }}
+                             className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-gold active:scale-95 transition-all"
+                           >
+                              <Copy className="w-6 h-6" />
+                           </button>
                         </div>
                         <motion.button 
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           onClick={async () => {
-                            const text = `Regista-te na Moza Invest e começa a lucrar hoje! Usa o meu código de convite: ${inviteCode}`;
+                            const inviteLink = `${window.location.origin}${window.location.pathname}?ref=${inviteCode}`;
+                            const text = `Regista-te na Moza Invest e começa a lucrar hoje! Bónus exclusivo com o meu link: ${inviteLink}`;
                             if (navigator.share) {
                               try {
-                                await navigator.share({ title: 'Moza Invest', text, url: window.location.href });
+                                await navigator.share({ title: 'Moza Invest', text, url: inviteLink });
                               } catch (err: any) {
-                                if (err.name !== 'AbortError') {
-                                  console.error('Erro ao partilhar:', err);
-                                }
+                                if (err.name !== 'AbortError') console.error('Erro ao partilhar:', err);
                               }
                             } else {
-                              alert("Use a função de partilha do sistema.");
+                              navigator.clipboard.writeText(inviteLink);
+                              alert("Link copiado!");
                             }
                           }}
-                          className="w-full gold-gradient text-white py-5 rounded-[22px] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-gold/20"
+                          className="w-full gold-gradient text-white py-6 rounded-[28px] font-black text-sm uppercase tracking-[0.2em] shadow-xl shadow-gold/20 flex items-center justify-center gap-3"
                         >
-                           CONVIDAR AGORA
+                           <ExternalLink className="w-5 h-5" />
+                           ENVIAR CONVITE
                         </motion.button>
                      </div>
                   </div>
                </div>
 
-               <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-1">
-                     <p className="text-[9px] font-black text-white/40 uppercase tracking-widest leading-none">Total Convites</p>
-                     <p className="text-2xl font-black text-white font-mono">{referralStats.total}</p>
+               {/* Network Stats */}
+               <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-card-bg/40 border border-white/5 p-5 rounded-[28px] text-center space-y-1">
+                     <p className="text-[8px] font-black text-white/30 uppercase tracking-widest leading-none">Diretos</p>
+                     <p className="text-xl font-black text-white font-mono">{referralStats.total}</p>
+                     <p className="text-[7px] font-bold text-gold/40 uppercase tracking-widest leading-none">Membros L1</p>
                   </div>
-                  <div className="bg-card-bg/40 border border-white/5 p-6 rounded-[32px] space-y-1">
-                     <p className="text-[9px] font-black text-white/40 uppercase tracking-widest leading-none">Membros VIP</p>
-                     <p className="text-2xl font-black text-gold font-mono">{referralStats.activeVips}</p>
+                  <div className="bg-card-bg/40 border border-white/5 p-5 rounded-[28px] text-center space-y-1">
+                     <p className="text-[8px] font-black text-white/30 uppercase tracking-widest leading-none">Lucros</p>
+                     <p className="text-xl font-black text-gold font-mono">{referralStats.totalProfit.toLocaleString()}</p>
+                     <p className="text-[7px] font-bold text-gold/40 uppercase tracking-widest leading-none">MZN Totais</p>
+                  </div>
+                  <div className="bg-card-bg/40 border border-white/5 p-5 rounded-[28px] text-center space-y-1 text-emerald-500">
+                     <p className="text-[8px] font-black text-white/30 uppercase tracking-widest leading-none">VIPs</p>
+                     <p className="text-xl font-black font-mono">{referralStats.activeVips}</p>
+                     <p className="text-[7px] font-bold text-emerald-500/40 uppercase tracking-widest leading-none">Ativos</p>
+                  </div>
+               </div>
+
+               {/* Commission Tiers */}
+               <div className="bg-white/5 rounded-[40px] border border-white/10 p-8 space-y-6">
+                  <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-xl bg-gold/10 flex items-center justify-center text-gold">
+                        <TrendingUp className="w-4 h-4" />
+                     </div>
+                     <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Ganhos por Nível</h3>
+                  </div>
+                  <div className="space-y-3">
+                     {TEAM_LEVELS.map((lvl, index) => (
+                       <div key={index} className="flex items-center justify-between p-4 bg-black/20 rounded-2xl border border-white/5">
+                          <div className="flex items-center gap-4">
+                             <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-gold font-black text-xs">L{index + 1}</div>
+                             <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">Comissão Direta</p>
+                          </div>
+                          <p className="text-lg font-black text-gold">{lvl.commission}</p>
+                       </div>
+                     ))}
                   </div>
                </div>
 
@@ -6958,6 +7194,27 @@ export default function App() {
                     </div>
                  </div>
                </div>
+
+                {/* Withdrawal Rules Quick Info */}
+                <div onClick={() => openOverlay('withdraw')} className="bg-white/5 border border-white/10 rounded-[40px] p-8 space-y-4 mb-4 shadow-2xl group cursor-pointer hover:bg-white/10 transition-all border-dashed mt-4">
+                   <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-3">
+                       <div className="w-10 h-10 rounded-2xl bg-gold/10 flex items-center justify-center text-gold">
+                         <Info className="w-5 h-5" />
+                       </div>
+                       <div>
+                         <h4 className="text-xs font-black text-white uppercase tracking-widest">Informação de Saque</h4>
+                         <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Regras & Prazos</p>
+                       </div>
+                     </div>
+                     <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-gold transition-colors" />
+                   </div>
+                   <div className="p-4 bg-black/20 rounded-[28px] border border-white/5">
+                      <p className="text-[9px] text-white/60 font-bold uppercase leading-relaxed">
+                        Atenção: Contas novas possuem um <span className="text-gold">período de carência de {appSettings.withdrawLockDays ?? 60} dias</span> após o primeiro depósito para garantir a segurança dos ativos.
+                      </p>
+                   </div>
+                </div>
 
                {/* Language Selector */}
                <div className="bg-card-bg/40 backdrop-blur-xl border border-white/5 rounded-[40px] p-6 space-y-4 mb-4 shadow-2xl">
